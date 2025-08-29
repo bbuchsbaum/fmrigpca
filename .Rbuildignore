@@ -7,3 +7,6 @@
 ^vignettes/.*\.R$
 ^.claude
 ^CLAUDE\.md$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$

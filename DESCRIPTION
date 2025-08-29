@@ -40,3 +40,4 @@ Config/testthat/edition: 3
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2.9000
 VignetteBuilder: knitr
+URL: https://bbuchsbaum.github.io/fmrigpca/
