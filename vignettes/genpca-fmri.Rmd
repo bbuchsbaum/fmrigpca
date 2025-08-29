@@ -1,0 +1,630 @@
+---
+title: "Design-free generalized PCA for fMRI (fmrigpca)"
+author: "fmrigpca authors"
+date: "`r format(Sys.Date())`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Design-free generalized PCA for fMRI (fmrigpca)}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+> A practical guide to building design‑free row/column metrics for generalized PCA
+> with `genpca` using `NeuroVec`/`NeuroVol` (voxel level) or `ClusteredNeuroVec`
+> (parcel level). No task regressors required.
+
+## What is Generalized PCA for fMRI?
+
+Standard PCA treats all voxels and time points equally, which ignores important structure in fMRI data:
+- Some voxels have better signal quality than others
+- Voxels are spatially correlated with their neighbors  
+- Time points show temporal autocorrelation
+- Motion artifacts affect specific time frames
+
+Generalized PCA addresses these issues by incorporating domain knowledge through custom metrics:
+- **Column metric (A)**: Weights voxels by tissue type and signal quality, encodes spatial smoothness
+- **Row metric (M)**: Accounts for temporal autocorrelation and down-weights high-motion frames
+
+The result is components that are more neurobiologically meaningful and robust to artifacts.
+
+## Installation
+
+```r
+install.packages(c("Matrix","matrixStats"))
+# If installing from source locally, build vignettes:
+# devtools::install_local("fmrigpca_0.1.3.tar.gz", build_vignettes = TRUE, upgrade = "never")
+library(fmrigpca)
+library(neuroim2)
+library(Matrix)
+```
+
+## Quickstart: Voxel-wise Workflow (NeuroVec)
+
+This example demonstrates the complete workflow with synthetic data:
+
+```r
+set.seed(1)
+
+# 1) Create a small mask and simulate a couple of short runs
+mask <- {
+  dims <- c(10,10,6); arr <- array(FALSE, dims); ctr <- (dims + 1)/2; rad <- min(dims)*0.35
+  for (i in 1:dims[1]) for (j in 1:dims[2]) for (k in 1:dims[3])
+    if (sqrt(sum((c(i,j,k) - ctr)^2)) <= rad) arr[i,j,k] <- TRUE
+  NeuroVol(arr, NeuroSpace(dims, c(2,2,2)))
+}
+
+n_time <- 40
+nv_list <- list(
+  neuroim2::simulate_fmri(mask, n_time = n_time, spatial_fwhm = 3, ar_mean = 0.4,
+                          noise_sd = 1.0, n_factors = 3, seed = 1, return_centered = TRUE),
+  neuroim2::simulate_fmri(mask, n_time = n_time, spatial_fwhm = 3, ar_mean = 0.4,
+                          noise_sd = 1.0, n_factors = 3, seed = 2, return_centered = TRUE)
+)
+
+# 2) Build spatial metric A: Laplacian + tissue + tSNR
+# The Laplacian encodes spatial neighborhood structure
+# k=6 connects each voxel to its 6 face-adjacent neighbors (standard 3D connectivity)
+# sigma=2.0 controls how quickly weights decay with distance
+L <- make_laplacian(mask, k = 6, sigma = 2.0, normalized = TRUE)
+cat("Laplacian dimensions:", dim(L), "\n")  # Should be n_voxels x n_voxels
+
+# Toy tissue maps (radial profiles); see rank-stability vignette for a helper
+mk_tissue <- function(mask, center_frac = 0.5) {
+  d <- dim(mask); arr <- as.array(mask) != 0; idx <- which(arr)
+  lin <- idx - 1; ii <- (lin %% d[1]) + 1; jj <- ((lin %/% d[1]) %% d[2]) + 1; kk <- (lin %/% (d[1]*d[2])) + 1
+  ctr <- d/2; dist <- sqrt(rowSums((cbind(ii,jj,kk) - matrix(ctr, nrow=length(ii), ncol=3, byrow=TRUE))^2))
+  maxd <- max(dist)
+  gm <- wm <- csf <- array(0, d)
+  for (t in seq_along(idx)) { v <- idx[t]; dn <- dist[t]/maxd; wm[v] <- exp(-4*dn^2); gm[v] <- exp(-8*(dn-0.5)^2); csf[v] <- pmin(1,dn^2) }
+  tot <- gm + wm + csf; tot[tot==0] <- 1
+  list(gm=NeuroVol(gm/tot, space(mask)), wm=NeuroVol(wm/tot, space(mask)), csf=NeuroVol(csf/tot, space(mask)))
+}
+tissue <- mk_tissue(mask)
+
+tsnr <- compute_tsnr(nv_list)
+mask_idx <- which(as.array(mask) != 0)
+A <- build_spatial_metric(tissue$gm, tissue$wm, tissue$csf, L, tsnr = tsnr, mask_idx = mask_idx, lambda_s = 0.5)
+
+# 3) Fit subject-level genpca conveniently
+FD_list <- lapply(seq_along(nv_list), function(i) abs(rnorm(n_time, 0.2, 0.1)))
+DVARS_list <- lapply(seq_along(nv_list), function(i) abs(rnorm(n_time, 1.0, 0.3)))
+
+fit <- fit_subject_genpca(
+  nv_list = nv_list,
+  mask_vol = mask,
+  gm_vol = tissue$gm, wm_vol = tissue$wm, csf_vol = tissue$csf,
+  FD_list = FD_list, DVARS_list = DVARS_list,
+  k = 5, p_ar = 1L, lambda_s = 0.5, lambda_t = 0.3,
+  lap_k = 6, lap_sigma = 2.0
+)
+
+# 4) Inspect components and scores
+ncol(fit$v)        # number of components
+dim(fit$scores)    # time x components across stacked runs
+plot(fit$scores[,1], type = "l", main = "Component 1 score (stacked)")
+```
+
+## Concepts: A, M, and W - Understanding the Geometry
+
+### The Core Idea
+Generalized PCA (genpca) extends standard PCA by incorporating custom metrics that encode domain knowledge about spatial and temporal structure in fMRI data. Instead of treating all voxels and time points equally, we weight them according to their reliability and relationships.
+
+### A (Column Metric) - Spatial Structure
+The column metric `A` encodes spatial relationships between voxels and their relative importance:
+
+```r
+A = diag(sqrt(w)) * (I + lambda_s * L) * diag(sqrt(w)) + tau * I
+```
+
+**Components:**
+- **Voxel weights `w`**: Combines tissue type and signal quality
+  - Gray matter weight: `gm^alpha` (typically alpha=1.0)
+  - Signal quality: `tsnr^beta` (typically beta=0.5)
+  - Non-brain penalty: `(wm + csf)^(-gamma)` (typically gamma=1.0)
+  - Result: Higher weights for gray matter voxels with good signal
+  
+- **Graph Laplacian `L`**: Encodes spatial smoothness
+  - Built from k-nearest neighbors (k=6 for face connectivity)
+  - Gaussian-weighted edges based on distance
+  - Normalized and scaled for numerical stability
+  
+- **Regularization `lambda_s`**: Controls spatial smoothness (default 0.5)
+  - Higher values → more spatially coherent components
+  - Lower values → more localized components
+
+### M (Row Metric) - Temporal Structure
+The row metric `M` encodes temporal dependencies and data quality per time point:
+
+```r
+M = W^{1/2} * Q' * H * Q * W^{1/2} + ridge * I
+```
+
+**Components:**
+- **AR whitener `Q`**: Removes temporal autocorrelation
+  - Estimated from global mean signal (or WM signal)
+  - Typical AR(1) model captures ~0.3-0.5 autocorrelation
+  - Makes time points approximately independent
+  
+- **Temporal penalty `H`**: Promotes smooth time courses
+  - Second-difference operator penalizes rapid fluctuations
+  - Weight `lambda_t` controls smoothness (default 0.3)
+  
+- **Frame weights `W`**: Down-weights high-motion frames
+  - Based on framewise displacement (FD) and DVARS
+  - Frames with FD > 0.5mm or DVARS z > 3 get reduced weight
+  - Prevents motion artifacts from dominating components
+
+### W (Whitened Matrix) - The Transformed Space
+The whitened matrix combines all structure:
+
+```r
+W = R_M' * X * R_A
+# where A = R_A' * R_A (Cholesky decomposition)
+# and   M = R_M' * R_M
+```
+
+In this whitened space:
+- Spatial correlations are accounted for via A
+- Temporal dependencies are removed via M
+- Standard SVD finds orthogonal components
+- Components maximize variance while respecting the geometry
+
+### Verification
+Always verify your metrics are properly constructed:
+
+```r
+# Check symmetry (required for valid metrics)
+isTRUE(Matrix::isSymmetric(A))
+isTRUE(Matrix::isSymmetric(M))
+
+# Check positive definiteness (should have positive eigenvalues)
+min(eigen(as.matrix(A), only.values = TRUE)$values) > 0
+min(eigen(as.matrix(M), only.values = TRUE)$values) > 0
+
+# Inspect condition numbers (lower is better)
+kappa(as.matrix(A))  # Should be < 1e6 for numerical stability
+kappa(as.matrix(M))
+```
+
+## Visualizing Temporal Penalties and Components
+
+Understanding how the temporal metric works is crucial. Let's visualize the key components:
+
+### Visualizing the Temporal Penalty Matrix
+
+The temporal penalty `H = I + λ_t * D2' * D2` promotes smooth time courses:
+
+```r
+# Create temporal penalty for visualization
+n_time <- 50
+lambda_vals <- c(0, 0.3, 0.7, 1.0)
+
+par(mfrow = c(2, 2), mar = c(4, 4, 3, 1))
+for (lambda_t in lambda_vals) {
+  H <- make_temporal_penalty(n_time, lambda_t = lambda_t)
+  
+  # Visualize the penalty matrix structure
+  image(as.matrix(H), main = paste("Temporal Penalty, λ_t =", lambda_t),
+        xlab = "Time", ylab = "Time", col = heat.colors(100),
+        axes = FALSE)
+  axis(1, at = seq(0, 1, length = 5), labels = seq(1, n_time, length = 5))
+  axis(2, at = seq(0, 1, length = 5), labels = seq(1, n_time, length = 5))
+  
+  # The diagonal shows self-penalty, off-diagonals show coupling
+  # Higher λ_t creates stronger local temporal coupling
+}
+```
+
+### Visualizing AR Whitening Effects
+
+The AR whitener removes temporal autocorrelation:
+
+```r
+# Simulate autocorrelated time series
+set.seed(42)
+n_time <- 100
+ar_coef <- 0.5  # Typical fMRI autocorrelation
+
+# Generate AR(1) process
+noise <- rnorm(n_time)
+y <- numeric(n_time)
+y[1] <- noise[1]
+for (t in 2:n_time) {
+  y[t] <- ar_coef * y[t-1] + noise[t]
+}
+
+# Create a simple mask and NeuroVec for AR estimation
+tiny_mask <- NeuroVol(array(1, c(2,2,2)), NeuroSpace(c(2,2,2), c(1,1,1)))
+nv_sim <- simulate_fmri(tiny_mask, n_time = n_time, ar_mean = ar_coef, seed = 1)
+
+# Estimate AR whitener
+ar_fit <- estimate_ar_whitener(nv_sim, p = 1)
+
+par(mfrow = c(2, 2), mar = c(4, 4, 3, 1))
+
+# Original autocorrelation
+acf(y, main = "Original Time Series ACF", lag.max = 20)
+
+# Whitened series
+y_white <- as.numeric(ar_fit$Q %*% y)
+acf(y_white, main = "Whitened Time Series ACF", lag.max = 20)
+
+# Visualize whitening matrix Q
+image(as.matrix(ar_fit$Q)[1:20, 1:20], 
+      main = "Whitening Matrix Q (first 20x20)",
+      xlab = "Time", ylab = "Time", col = heat.colors(100))
+
+# Visualize covariance before whitening
+image(as.matrix(ar_fit$Sigma)[1:20, 1:20],
+      main = "Original Covariance (first 20x20)", 
+      xlab = "Time", ylab = "Time", col = heat.colors(100))
+```
+
+### Visualizing Motion-based Frame Weights
+
+Frame weights down-weight high-motion time points:
+
+```r
+# Simulate motion parameters
+n_time <- 100
+set.seed(123)
+
+# Create FD with some spikes (motion events)
+FD <- abs(rnorm(n_time, mean = 0.1, sd = 0.1))
+FD[c(25, 50, 75)] <- c(0.8, 1.2, 0.6)  # Motion spikes
+
+# Create DVARS with corresponding spikes
+DVARS <- abs(rnorm(n_time, mean = 1, sd = 0.3))
+DVARS[c(25, 50, 75)] <- c(3, 4, 2.5)
+
+# Calculate frame weights
+W <- make_frame_weights(FD = FD, DVARS = DVARS, 
+                        fd_thresh = 0.5, dvars_z = 3.0)
+weights <- diag(as.matrix(W))
+
+par(mfrow = c(3, 1), mar = c(4, 4, 2, 1))
+
+# Plot FD
+plot(FD, type = "l", col = "blue", lwd = 2,
+     main = "Framewise Displacement (FD)",
+     xlab = "Time", ylab = "FD (mm)")
+abline(h = 0.5, col = "red", lty = 2)
+text(90, 0.55, "Threshold", col = "red")
+
+# Plot DVARS
+plot(DVARS, type = "l", col = "darkgreen", lwd = 2,
+     main = "DVARS (Signal Change)",
+     xlab = "Time", ylab = "DVARS")
+dvars_thresh <- mean(DVARS) + 3 * sd(DVARS)
+abline(h = dvars_thresh, col = "red", lty = 2)
+text(90, dvars_thresh + 0.1, "3σ", col = "red")
+
+# Plot resulting weights
+plot(weights, type = "l", col = "purple", lwd = 2,
+     main = "Frame Weights (Lower = More Downweighting)",
+     xlab = "Time", ylab = "Weight", ylim = c(0, 1))
+points(which(weights < 0.5), weights[weights < 0.5], 
+       col = "red", pch = 19, cex = 1.2)
+```
+
+## Visualizing Independent Components
+
+After fitting, we can visualize the resulting components:
+
+### Spatial Component Maps
+
+```r
+# Map components back to brain space
+# First 3 components
+par(mfrow = c(1, 3), mar = c(2, 2, 3, 1))
+
+for (comp in 1:3) {
+  # Get component loadings
+  v_comp <- fit$v[, comp]
+  
+  # Map back to 3D volume
+  vol_array <- array(0, dim(mask))
+  vol_array[mask_idx] <- v_comp
+  
+  # Find slice with maximum variance for visualization
+  slice_vars <- apply(vol_array, 3, var)
+  best_slice <- which.max(slice_vars)
+  
+  # Plot the slice
+  image(vol_array[, , best_slice], 
+        main = paste("Component", comp, "- Slice", best_slice),
+        col = heat.colors(100), axes = FALSE)
+  
+  # You could also save as NeuroVol for proper visualization
+  # vol_comp <- NeuroVol(vol_array, space(mask))
+  # writeVolume(vol_comp, paste0("component_", comp, ".nii"))
+}
+```
+
+### Temporal Component Scores
+
+```r
+# Visualize temporal scores for first 3 components
+n_time_per_run <- n_time
+n_runs <- length(nv_list)
+
+par(mfrow = c(3, 1), mar = c(4, 4, 2, 1))
+
+for (comp in 1:3) {
+  scores_comp <- fit$scores[, comp]
+  
+  plot(scores_comp, type = "l", col = "darkblue", lwd = 1.5,
+       main = paste("Component", comp, "Time Course"),
+       xlab = "Time (stacked across runs)", 
+       ylab = "Score")
+  
+  # Add run boundaries
+  for (r in 1:(n_runs-1)) {
+    abline(v = r * n_time_per_run, col = "gray", lty = 2)
+  }
+  
+  # Highlight high-activity periods
+  threshold <- 2 * sd(scores_comp)
+  high_activity <- which(abs(scores_comp) > threshold)
+  points(high_activity, scores_comp[high_activity], 
+         col = "red", pch = 19, cex = 0.5)
+}
+```
+
+### Component Power Spectra
+
+Examining the frequency content of components:
+
+```r
+# Compute power spectra of component time courses
+library(stats)
+
+# Sampling rate (assuming TR = 2 seconds)
+TR <- 2
+fs <- 1/TR
+n_freq <- floor(n_time_per_run/2) + 1
+freq <- seq(0, fs/2, length.out = n_freq)
+
+par(mfrow = c(2, 2), mar = c(4, 4, 3, 1))
+
+for (comp in 1:min(4, ncol(fit$scores))) {
+  # Take first run for spectral analysis
+  scores_run1 <- fit$scores[1:n_time_per_run, comp]
+  
+  # Compute periodogram
+  spec <- spectrum(scores_run1, method = "pgram", plot = FALSE)
+  
+  # Convert to Hz and plot
+  plot(spec$freq / (2 * pi) * fs, 10 * log10(spec$spec),
+       type = "l", col = "blue", lwd = 2,
+       main = paste("Component", comp, "Power Spectrum"),
+       xlab = "Frequency (Hz)", 
+       ylab = "Power (dB)",
+       xlim = c(0, 0.25))  # Focus on < 0.25 Hz
+  
+  # Mark typical fMRI frequency bands
+  abline(v = 0.01, col = "red", lty = 2)  # Very low freq
+  abline(v = 0.1, col = "red", lty = 2)   # Low freq
+  text(0.01, par("usr")[4] * 0.9, "0.01 Hz", col = "red", cex = 0.8)
+  text(0.1, par("usr")[4] * 0.9, "0.1 Hz", col = "red", cex = 0.8)
+}
+```
+
+### Component Variance Explained
+
+```r
+# Calculate variance explained by each component
+# Note: In generalized PCA, this is relative to the metrics used
+
+# Get eigenvalues (approximated from component norms)
+comp_vars <- colSums(fit$v^2)
+var_explained <- comp_vars / sum(comp_vars) * 100
+
+par(mfrow = c(1, 2), mar = c(4, 4, 3, 1))
+
+# Scree plot
+plot(var_explained, type = "b", pch = 19, col = "darkblue",
+     main = "Scree Plot",
+     xlab = "Component", ylab = "% Variance Explained")
+grid()
+
+# Cumulative variance
+plot(cumsum(var_explained), type = "b", pch = 19, col = "darkgreen",
+     main = "Cumulative Variance Explained",
+     xlab = "Number of Components", ylab = "Cumulative %")
+abline(h = c(80, 90), col = "red", lty = 2)
+grid()
+```
+
+## Two Workflows: Joint vs Meta-PCA
+
+- Joint fit (shown above): stack runs in time, build block-diagonal `M`, fit once.
+- Meta-PCA: fit each run separately, then combine the loadings via
+  `fit_subject_metapca()` (MFA weighting) to obtain a consensus space.
+
+```r
+# Per-run fits (each call passes a single-run list)
+fits <- lapply(seq_along(nv_list), function(r) {
+  fit_subject_genpca(
+    nv_list = list(nv_list[[r]]),
+    mask_vol = mask,
+    gm_vol = tissue$gm, wm_vol = tissue$wm, csf_vol = tissue$csf,
+    k = 5, p_ar = 1L, lambda_s = 0.5, lambda_t = 0.3,
+    lap_k = 6, lap_sigma = 2.0
+  )
+})
+
+# Combine per-run fits via meta-PCA (consensus loadings)
+meta <- fit_subject_metapca(fits, k = 3)
+
+# Compare the k=3 subspace between the joint fit and meta-PCA
+theta <- subspace_principal_angles(fit$v[,1:3,drop=FALSE], meta$v)
+round(theta * 180/pi, 2)
+```
+
+When to prefer meta-PCA:
+- Heterogeneous runs/sessions or per-subject fits that you want to combine fairly.
+- When stacked fitting is inconvenient (e.g., memory constraints, differing run lengths).
+- For cross-subject analyses: fit per subject first, then run meta-PCA on those fits.
+
+## Parcel-wise Variant (ClusteredNeuroVec)
+
+### Why Use Parcels?
+
+Parcellation reduces dimensionality while preserving spatial structure:
+- **Computational efficiency**: 200-1000 parcels vs 100,000+ voxels
+- **Noise reduction**: Averaging within parcels improves SNR
+- **Interpretability**: Results align with functional regions
+- **Stability**: Less sensitive to registration errors
+
+### Basic Parcel Workflow
+
+```r
+# Suppose cnv_list is a list of ClusteredNeuroVec objects
+# and parc_vol is a NeuroVol with integer parcel labels
+
+# Step 1: Build parcel-level spatial graph
+# Options: from labels, centroids, or custom adjacency
+Lp <- make_parcel_laplacian(
+  parc_vol = parc_vol,  # NeuroVol with parcel labels
+  k = 6,                 # Connect ~6 nearest parcels
+  sigma = 2.0,          # Gaussian weight decay
+  normalized = TRUE      # Use normalized Laplacian
+)
+
+# Step 2: Aggregate tissue maps to parcels
+# Computes mean tissue probability within each parcel
+agg <- aggregate_tissue_to_parcels(
+  gm_vol = tissue$gm, 
+  wm_vol = tissue$wm, 
+  csf_vol = tissue$csf,
+  parc_vol = parc_vol
+)
+
+# Step 3: Compute parcel-level tSNR
+tsnr_p <- compute_tsnr_parcel(cnv_list)
+
+# Step 4: Build parcel column metric
+A_p <- build_spatial_metric_parcel(
+  gm_p = agg$gm,        # Parcel gray matter
+  wm_p = agg$wm,        # Parcel white matter  
+  csf_p = agg$csf,      # Parcel CSF
+  Lp = Lp,              # Parcel graph
+  tsnr_p = tsnr_p,      # Parcel tSNR
+  lambda_s = 0.5        # Spatial regularization
+)
+
+# Step 5: Build per-run temporal metrics (parcel version)
+M_p_blks <- lapply(cnv_list, function(cnv) {
+  build_temporal_metric_parcel(
+    cnv,                # ClusteredNeuroVec
+    p = 1L,            # AR(1) model
+    lambda_t = 0.3     # Temporal smoothing
+  )
+})
+
+# Step 6: Run genpca on parcels (much faster!)
+# ... continue as in expanded example below
+```
+
+## Parcel-wise variant (expanded)
+
+```r
+# Suppose you have a list of ClusteredNeuroVec runs: cnv_list
+# 1) Build parcel Laplacian Lp (from centroids or labels)
+# Lp <- make_parcel_laplacian(parc_vol = parc_vol, k = 6, sigma = 2.0, normalized = TRUE)
+
+# 2) Aggregate tissues to parcels
+# agg <- aggregate_tissue_to_parcels(gm_vol, wm_vol, csf_vol, parc_vol)
+
+# 3) Build parcel metric A_p and per-run row metrics M_p
+# tsnr_p <- compute_tsnr_parcel(cnv_list)
+# A_p <- build_spatial_metric_parcel(agg$gm, agg$wm, agg$csf, Lp, tsnr_p = tsnr_p, lambda_s = 0.5)
+# M_p_blks <- lapply(cnv_list, function(cnv) build_temporal_metric_parcel(cnv, p = 1L, lambda_t = 0.3))
+
+# 4) Stack and fit
+# Xp_rows <- lapply(cnv_list, function(cnv) t(as.matrix(cnv)))
+# Xp <- do.call(rbind, Xp_rows)
+# Mp <- Matrix::bdiag(M_p_blks)
+# fit_parc <- genpca::genpca(Xp, A = A_p, M = Mp, ncomp = 5, preproc = NULL)
+```
+
+## Practical Tips and Best Practices
+
+### Parameter Selection
+
+**Number of components (k):**
+- Start with k=5-10 for exploration
+- Use rank selection methods (see rank-stability vignette):
+  - Gavish-Donoho for automatic threshold
+  - Parallel analysis for statistical testing
+  - Cross-validation for empirical validation
+- Consider stability across runs as key criterion
+
+**Regularization parameters:**
+- `lambda_s` (spatial): 0.1-1.0, default 0.5
+  - Lower: preserve fine spatial details
+  - Higher: enforce spatial smoothness
+- `lambda_t` (temporal): 0.1-0.5, default 0.3
+  - Lower: preserve high-frequency dynamics
+  - Higher: smooth temporal fluctuations
+
+**Graph parameters:**
+- `k` (neighbors): 6 (faces), 18 (faces+edges), 26 (all)
+- `sigma` (bandwidth): 1.5-3.0, controls spatial influence decay
+
+### Performance Optimization
+
+**For large datasets:**
+- Use parcellation to reduce dimensionality (200-1000 parcels)
+- Install RSpectra for faster eigensolvers (automatic)
+- Process runs in parallel when fitting separately
+- The neighborweights package provides efficient graph construction
+
+**Memory management:**
+- Voxel-wise: ~8 bytes/voxel/timepoint (double precision)
+- Spatial metrics can be large (V x V) but are sparse
+- Use `Matrix` sparse formats (automatic)
+
+### Common Issues and Solutions
+
+**"Mask has no voxels" error:**
+- Check mask is non-zero: `sum(as.array(mask) != 0)`
+- Ensure mask is NeuroVol: `inherits(mask, "NeuroVol")`
+
+**"NeuroSpace mismatch" error:**
+- All volumes must share dimensions, spacing, and origin
+- Check with: `identical(space(vol1), space(vol2))`
+- Resample if needed using neuroim2 functions
+
+**Non-positive definite metrics:**
+- Increase ridge parameter (tau) slightly
+- Check for NaN/Inf in data
+- Verify tissue maps sum to ~1.0
+
+**Unstable components:**
+- Increase regularization (lambda_s, lambda_t)
+- Reduce k (may be fitting noise)
+- Check motion parameters are reasonable
+
+### Workflow Recommendations
+
+1. **Start simple**: Use defaults, small k
+2. **Validate**: Check CV error and stability
+3. **Tune carefully**: Adjust one parameter at a time
+4. **Document choices**: Save configuration for reproducibility
+5. **Visualize results**: Map components back to brain space
+
+## From loadings to maps and time courses
+
+```r
+# Map voxel loadings back to a 3D volume for visualization
+v1 <- fit$v[,1]
+arr_v1 <- array(0, dim(mask))
+arr_v1[mask_idx] <- v1
+vol_v1 <- NeuroVol(arr_v1, space(mask))
+# Now vol_v1 can be visualized with your preferred neuroimaging tools.
+
+# First component time score across stacked runs
+plot(fit$scores[,1], type = "l", main = "Component 1 score")
+```

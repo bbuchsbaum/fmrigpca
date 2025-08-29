@@ -1,0 +1,456 @@
+---
+title: "Rank Selection and Stability for fmrigpca"
+author: "fmrigpca authors"
+date: "`r format(Sys.Date())`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Rank Selection and Stability for fmrigpca}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+This vignette demonstrates practical, design‑free strategies to choose the number of
+components (rank) and assess stability of the learned subspace in fmrigpca.
+
+We will:
+- Build spatial (A) and temporal (M) metrics from synthetic data
+- Form the whitened matrix W and inspect its spectrum
+- Apply two rank heuristics: Gavish‑Donoho (GD) and Parallel Analysis (PA)
+- Validate k via blocked reconstruction CV
+- Quantify stability across runs using principal angles and Procrustes distance
+
+We keep examples small and fully reproducible.
+
+## Setup and data
+
+```r
+set.seed(1)
+library(fmrigpca)
+library(neuroim2)
+library(Matrix)
+
+# Small spherical mask helper (self-contained)
+make_mask <- function(dims = c(10,10,6), radius_fraction = 0.7) {
+  arr <- array(FALSE, dims)
+  ctr <- (dims + 1)/2; rad <- min(dims) * radius_fraction / 2
+  for (i in seq_len(dims[1])) for (j in seq_len(dims[2])) for (k in seq_len(dims[3])) {
+    if (sqrt(sum((c(i,j,k) - ctr)^2)) <= rad) arr[i,j,k] <- TRUE
+  }
+  NeuroVol(arr, NeuroSpace(dims, c(2,2,2)))
+}
+
+# Simulate two short runs (voxel-level)
+mask <- make_mask()
+n_time <- 40
+nv_list <- list(
+  neuroim2::simulate_fmri(mask, n_time = n_time, spatial_fwhm = 3, ar_mean = 0.4,
+                          noise_sd = 1.0, n_factors = 3, seed = 1, return_centered = TRUE),
+  neuroim2::simulate_fmri(mask, n_time = n_time, spatial_fwhm = 3, ar_mean = 0.4,
+                          noise_sd = 1.0, n_factors = 3, seed = 2, return_centered = TRUE)
+)
+
+# Simple tissue probability maps (toy radial profiles)
+mk_tissue <- function(mask, center_frac = 0.5) {
+  d <- dim(mask); arr <- as.array(mask) != 0; idx <- which(arr)
+  lin <- idx - 1; ii <- (lin %% d[1]) + 1; jj <- ((lin %/% d[1]) %% d[2]) + 1; kk <- (lin %/% (d[1]*d[2])) + 1
+  ctr <- d/2; dist <- sqrt(rowSums((cbind(ii,jj,kk) - matrix(ctr, nrow=length(ii), ncol=3, byrow=TRUE))^2))
+  maxd <- max(dist)
+  gm <- wm <- csf <- array(0, d)
+  for (t in seq_along(idx)) {
+    v <- idx[t]; dn <- dist[t]/maxd
+    wm[v]  <- exp(-4 * dn^2)
+    gm[v]  <- exp(-8 * (dn - center_frac)^2)
+    csf[v] <- pmin(1, dn^2)
+  }
+  tot <- gm + wm + csf; tot[tot == 0] <- 1
+  list(
+    gm  = NeuroVol(gm/tot,  space(mask)),
+    wm  = NeuroVol(wm/tot,  space(mask)),
+    csf = NeuroVol(csf/tot, space(mask))
+  )
+}
+
+tissue <- mk_tissue(mask)
+```
+
+## Build A and M - The Key Metrics
+
+### Building the Spatial Metric (A)
+
+The spatial metric A combines three sources of information about voxel quality and relationships:
+
+```r
+# Step 1: Build the spatial graph Laplacian
+# This encodes which voxels are neighbors and how strongly connected they are
+L <- make_laplacian(mask, k = 6, sigma = 2.0, normalized = TRUE)
+cat("Laplacian sparsity:", round(100 * nnzero(L) / length(L), 2), "%\n")
+
+# Step 2: Compute temporal signal-to-noise ratio per voxel
+# This measures signal reliability across all time points and runs
+tsnr <- compute_tsnr(nv_list)
+mask_idx <- which(as.array(mask) != 0)
+cat("tSNR range:", round(range(tsnr), 2), "\n")
+
+# Step 3: Combine everything into the column metric A
+# This weights voxels by tissue type and signal quality, while encoding spatial smoothness
+A <- build_spatial_metric(
+  tissue$gm, tissue$wm, tissue$csf,  # Tissue probability maps
+  L,                                   # Spatial graph structure
+  tsnr = tsnr,                        # Signal quality per voxel
+  mask_idx = mask_idx,                # Which voxels to include
+  lambda_s = 0.5                      # Spatial smoothness weight
+)
+
+# Verify A is a valid metric (symmetric positive definite)
+cat("A is symmetric:", isSymmetric(A), "\n")
+cat("A condition number:", round(kappa(as.matrix(A)), 2), "\n")
+```
+
+### Building the Temporal Metric (M)
+
+The temporal metric M is built separately for each run, accounting for temporal structure and motion:
+
+```r
+# Generate synthetic motion parameters for this example
+# In real data, these come from motion correction preprocessing
+FD_list <- lapply(seq_along(nv_list), function(i) {
+  abs(rnorm(n_time, mean = 0.2, sd = 0.1))  # Framewise displacement in mm
+})
+DVARS_list <- lapply(seq_along(nv_list), function(i) {
+  abs(rnorm(n_time, mean = 1.0, sd = 0.3))  # Signal derivative variance
+})
+
+# Build M for each run separately
+M_blks <- lapply(seq_along(nv_list), function(i) {
+  cat("\nBuilding M for run", i, "\n")
+  
+  M_run <- build_temporal_metric(
+    nv_list[[i]],           # The NeuroVec for this run
+    wm_mask = tissue$wm,    # WM mask for robust AR estimation
+    p = 1L,                 # AR(1) model for temporal autocorrelation
+    FD = FD_list[[i]],      # Motion: framewise displacement
+    DVARS = DVARS_list[[i]], # Motion: signal changes
+    lambda_t = 0.3          # Temporal smoothness weight
+  )
+  
+  # Check properties
+  cat("  M dimensions:", dim(M_run), "\n")
+  cat("  M is symmetric:", isSymmetric(M_run), "\n")
+  
+  M_run
+})
+```
+
+### Stacking Data Across Runs
+
+For multi-run analysis, we stack the data temporally and combine the metrics:
+
+```r
+# Extract and stack the time series from each run
+# Each run contributes T_i rows to the stacked matrix
+X_rows <- lapply(nv_list, function(nv) {
+  X_run <- t(as.matrix(nv))  # Convert to T x V matrix
+  X_run[, mask_idx, drop = FALSE]  # Keep only in-mask voxels
+})
+
+# Stack all runs vertically
+X <- do.call(rbind, X_rows)
+cat("\nStacked data dimensions:", dim(X), "\n")
+cat("  Total time points:", nrow(X), "\n")
+cat("  Number of voxels:", ncol(X), "\n")
+
+# Create block-diagonal M for all runs
+# This preserves run-specific temporal structure
+M <- Matrix::bdiag(M_blks)
+cat("\nBlock-diagonal M dimensions:", dim(M), "\n")
+cat("M sparsity:", round(100 * nnzero(M) / length(M), 2), "%\n")
+
+# The metrics are now ready for generalized PCA
+# A encodes spatial structure (same across runs)
+# M encodes temporal structure (block-diagonal, one block per run)
+```
+
+## Inspect Spectrum and Pick k - Data-Driven Rank Selection
+
+### Understanding the Whitened Spectrum
+
+```r
+# Form the whitened matrix where both spatial and temporal structure are accounted for
+W <- whitened_matrix(X, A, M)
+cat("Whitened matrix dimensions:", dim(W), "\n")
+
+# Compute singular values - these represent component importance in the whitened space
+sv <- svd(W, nu = 0, nv = 0)$d
+cat("Number of singular values:", length(sv), "\n")
+cat("Top 10 singular values:", round(sv[1:min(10, length(sv))], 3), "\n")
+
+# Visualize the spectrum - look for an "elbow" or gap
+plot(sv, type = "b", main = "Whitened Singular Value Spectrum", 
+     ylab = "Singular value", xlab = "Component index",
+     col = "black", pch = 19)
+grid()
+```
+
+### Method 1: Gavish-Donoho (GD) Threshold
+
+The GD method estimates the noise level and sets a threshold based on random matrix theory:
+
+```r
+gd <- choose_rank_gd(W)
+cat("\nGavish-Donoho Analysis:\n")
+cat("  Estimated noise level:", round(gd$sigma_hat, 4), "\n")
+cat("  Threshold:", round(gd$threshold, 4), "\n")
+cat("  Suggested rank k =", gd$k, "\n")
+
+# Add threshold to plot
+abline(h = gd$threshold, lty = 2, col = "red", lwd = 2)
+text(length(sv) * 0.7, gd$threshold * 1.1, 
+     paste("GD threshold (k=", gd$k, ")"), col = "red")
+```
+
+### Method 2: Parallel Analysis (PA)
+
+PA creates a null distribution by permuting time points within each voxel:
+
+```r
+set.seed(42)  # For reproducibility
+pa <- choose_rank_pa(W, B = 100, alpha = 0.05)
+cat("\nParallel Analysis:\n")
+cat("  Number of permutations:", length(pa$null_s1), "\n")
+cat("  95th percentile of null:", round(pa$threshold, 4), "\n")
+cat("  Suggested rank k =", pa$k, "\n")
+
+# Add threshold to plot
+abline(h = pa$threshold, lty = 3, col = "blue", lwd = 2)
+text(length(sv) * 0.7, pa$threshold * 0.9, 
+     paste("PA threshold (k=", pa$k, ")"), col = "blue")
+
+# Show null distribution
+hist(pa$null_s1, breaks = 30, main = "Null Distribution (PA)",
+     xlab = "Leading singular value under permutation",
+     col = "lightblue")
+abline(v = pa$threshold, col = "blue", lwd = 2)
+abline(v = sv[1], col = "red", lwd = 2)
+legend("topright", c("Observed", "Threshold"), 
+       col = c("red", "blue"), lwd = 2)
+```
+
+## Cross-Validated Reconstruction Error
+
+### Validating the Chosen Rank
+
+Cross-validation provides an empirical check on the chosen rank by measuring how well
+the components generalize to held-out time blocks:
+
+```r
+# Use the GD suggestion as a starting point
+k_try <- max(1, gd$k)
+cat("Testing k =", k_try, "components\n\n")
+
+# Perform blocked cross-validation
+# We hold out 20% of time points in contiguous blocks
+cv <- blocked_cv_recon_error(
+  X, A, M, 
+  k = k_try, 
+  nfold = 5,      # 5-fold CV
+  block_frac = 0.2  # Hold out 20% each fold
+)
+
+# Display results
+print(cv)
+cat("\nSummary:\n")
+cat("  Mean CV error:", round(mean(cv$error), 4), "\n")
+cat("  SD of CV error:", round(sd(cv$error), 4), "\n")
+cat("  CV coefficient of variation:", round(sd(cv$error)/mean(cv$error), 3), "\n")
+
+# Visualize fold-wise errors
+barplot(cv$error, names.arg = paste("Fold", 1:nrow(cv)),
+        main = paste("CV Reconstruction Error (k =", k_try, ")"),
+        ylab = "RMSE", col = "lightgreen")
+abline(h = mean(cv$error), lty = 2, col = "red")
+```
+
+**Interpretation**: Lower CV error indicates better generalization. If error varies
+greatly across folds, the model may be unstable.
+
+## Stability Across Runs
+
+### Assessing Component Reproducibility
+
+A key criterion for choosing k is whether the components are stable across different
+data splits. Here we compare the subspaces learned from each run independently:
+
+```r
+# Fit genpca separately to each run with the same k
+k_fit <- k_try
+cat("Fitting k =", k_fit, "components to each run independently\n\n")
+
+fit1 <- genpca::genpca(
+  X_rows[[1]],           # Data from run 1 only
+  A = A,                 # Same spatial metric
+  M = M_blks[[1]],       # Run 1 temporal metric
+  ncomp = k_fit, 
+  preproc = NULL
+)
+
+fit2 <- genpca::genpca(
+  X_rows[[2]],           # Data from run 2 only
+  A = A,                 # Same spatial metric
+  M = M_blks[[2]],       # Run 2 temporal metric
+  ncomp = k_fit,
+  preproc = NULL
+)
+
+cat("Dimensions of loadings:\n")
+cat("  Run 1:", dim(fit1$v), "\n")
+cat("  Run 2:", dim(fit2$v), "\n\n")
+```
+
+### Quantifying Subspace Agreement
+
+Two complementary measures assess how similar the learned subspaces are:
+
+```r
+# Principal angles: angles between corresponding basis vectors
+theta <- subspace_principal_angles(fit1$v, fit2$v)
+cat("Principal angles between subspaces:\n")
+cat("  Degrees:", round(theta * 180/pi, 1), "\n")
+cat("  Mean angle:", round(mean(theta * 180/pi), 1), "degrees\n")
+cat("  Max angle:", round(max(theta * 180/pi), 1), "degrees\n\n")
+
+# Procrustes distance: optimal alignment distance
+dp <- procrustes_distance(fit1$v, fit2$v)
+cat("Procrustes distance:", round(dp, 4), "\n")
+cat("  (0 = identical, larger = more different)\n\n")
+
+# Visualize component-wise angles
+barplot(theta * 180/pi, 
+        names.arg = paste("Comp", 1:length(theta)),
+        main = "Principal Angles Between Run Subspaces",
+        ylab = "Angle (degrees)",
+        col = ifelse(theta * 180/pi < 30, "green", 
+                     ifelse(theta * 180/pi < 60, "yellow", "red")))
+abline(h = 30, lty = 2, col = "gray")
+text(length(theta)/2, 35, "Good stability < 30°", col = "gray")
+```
+
+**Interpretation**: 
+- Angles < 30° indicate good stability
+- Angles > 60° suggest unstable components
+- If late components have large angles, consider reducing k
+
+## Putting it together: choose k by a small grid
+
+```r
+ks <- 1:6
+
+# Compute CV error for each k
+cv_stats <- sapply(ks, function(kc) mean(blocked_cv_recon_error(X, A, M, k = kc, nfold = 4, block_frac = 0.25)$error))
+
+# Compute stability (mean principal angle) between runs for each k
+stab_stats <- sapply(ks, function(kc) {
+  f1 <- genpca::genpca(X_rows[[1]], A = A, M = M_blks[[1]], ncomp = kc, preproc = NULL)
+  f2 <- genpca::genpca(X_rows[[2]], A = A, M = M_blks[[2]], ncomp = kc, preproc = NULL)
+  mean(subspace_principal_angles(f1$v[,1:kc,drop=FALSE], f2$v[,1:kc,drop=FALSE]) * 180/pi)
+})
+
+plot(ks, cv_stats, type = "b", ylim = range(cv_stats), ylab = "CV error", xlab = "k", main = "CV vs k")
+plot(ks, stab_stats, type = "b", ylim = range(stab_stats), ylab = "Mean angle (deg)", xlab = "k", main = "Stability vs k")
+```
+
+Interpretation:
+- Favor the smallest k near the bottom of the CV curve where stability angles are relatively small.
+- Compare with GD/PA suggestions; investigate neighborhood of those values.
+
+## Sensitivity to Regularization Parameters
+
+### Testing Different Regularization Strengths
+
+The regularization parameters `lambda_s` (spatial) and `lambda_t` (temporal) control
+the smoothness-fidelity tradeoff. Let's examine their impact:
+
+```r
+# Define two configurations: light vs heavy regularization
+cfgs <- list(
+  light = list(lambda_s = 0.2, lambda_t = 0.1),  # Less smoothing
+  heavy = list(lambda_s = 0.8, lambda_t = 0.6)   # More smoothing
+)
+
+cat("Testing regularization configurations:\n")
+for (name in names(cfgs)) {
+  cat("  ", name, ": lambda_s =", cfgs[[name]]$lambda_s, 
+      ", lambda_t =", cfgs[[name]]$lambda_t, "\n")
+}
+cat("\n")
+
+# Fit with each configuration
+fits <- lapply(cfgs, function(cf) {
+  fit_subject_genpca(
+    nv_list = nv_list, 
+    mask_vol = mask,
+    gm_vol = tissue$gm, 
+    wm_vol = tissue$wm, 
+    csf_vol = tissue$csf,
+    k = 4,                    # Fixed k for comparison
+    p_ar = 1L,               # Same AR order
+    lambda_s = cf$lambda_s,   # Varying spatial regularization
+    lambda_t = cf$lambda_t,   # Varying temporal regularization
+    lap_k = 6, 
+    lap_sigma = 2.0
+  )
+})
+```
+
+### Comparing Solutions
+
+```r
+# How different are the subspaces?
+angles_cfg <- subspace_principal_angles(fits[[1]]$v, fits[[2]]$v) * 180/pi
+cat("Principal angles between regularization settings:\n")
+cat("  Angles (deg):", round(angles_cfg, 1), "\n")
+cat("  Mean difference:", round(mean(angles_cfg), 1), "degrees\n\n")
+
+# Compare spatial smoothness of first component
+v1_light <- fits[[1]]$v[,1]
+v1_heavy <- fits[[2]]$v[,1]
+
+# Compute spatial variance (lower = smoother)
+spatial_var_light <- var(diff(v1_light))
+spatial_var_heavy <- var(diff(v1_heavy))
+
+cat("Spatial roughness (first component):\n")
+cat("  Light regularization:", format(spatial_var_light, scientific = TRUE), "\n")
+cat("  Heavy regularization:", format(spatial_var_heavy, scientific = TRUE), "\n")
+cat("  Ratio (heavy/light):", round(spatial_var_heavy/spatial_var_light, 3), "\n")
+```
+
+### Regularization Guidelines
+
+**Effects of regularization:**
+- **Higher `lambda_s`** (spatial): 
+  - Enforces smoother spatial maps
+  - Reduces noise but may blur fine details
+  - Typical range: 0.1-1.0
+  
+- **Higher `lambda_t`** (temporal):
+  - Promotes smoother time courses
+  - Reduces high-frequency noise
+  - Typical range: 0.1-0.5
+
+**Choosing values:**
+- Start with defaults (lambda_s=0.5, lambda_t=0.3)
+- Increase if components look noisy
+- Decrease if components look over-smoothed
+- Use stability across runs as a guide
+
+### Interpretation
+
+- Prefer the smallest k that yields low CV error and reasonable agreement between GD and PA.
+- Stability: smaller principal angles and smaller Procrustes distance indicate more consistent subspaces across runs.
+- If heuristics disagree, visually inspect the spectrum and compare CV/stability for nearby k values.
+
+### Tips & Pitfalls
+- Always set seeds in examples to keep results reproducible.
+- Use modest dimensions in vignettes; scale up in real analyses.
+- The `neighborweights` package is required for efficient spatial graph construction.
+- Ensure tissue maps share the same `NeuroSpace` as the mask; mismatches will error.

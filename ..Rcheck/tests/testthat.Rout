@@ -1,0 +1,51 @@
+
+R version 4.3.2 (2023-10-31) -- "Eye Holes"
+Copyright (C) 2023 The R Foundation for Statistical Computing
+Platform: aarch64-apple-darwin20 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> # This file is part of the standard devtools/testthat setup.
+> # To run the tests use: devtools::test()
+> 
+> library(testthat)
+Warning message:
+package 'testthat' was built under R version 4.3.3 
+> library(fmrigpca)
+> 
+> test_check("fmrigpca")
+Loading required package: Matrix
+
+Attaching package: 'neuroim2'
+
+The following object is masked from 'package:base':
+
+    scale
+
+
+Attaching package: 'genpca'
+
+The following object is masked from 'package:base':
+
+    truncate
+
+[ FAIL 0 | WARN 0 | SKIP 1 | PASS 149 ]
+
+══ Skipped tests (1) ═══════════════════════════════════════════════════════════
+• {neighborweights} is not installed (1): 'test-laplacian.R:49:3'
+
+[ FAIL 0 | WARN 0 | SKIP 1 | PASS 149 ]
+> 
+> proc.time()
+   user  system elapsed 
+  2.107   0.131   2.294 

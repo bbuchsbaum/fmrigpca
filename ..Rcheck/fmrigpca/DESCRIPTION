@@ -1,0 +1,28 @@
+Package: fmrigpca
+Type: Package
+Title: Design-free fMRI Dimensionality Reduction with Generalized PCA
+Version: 0.1.3
+Authors@R: person(given = "Johnny", family = "Lab", role = c("aut", "cre"), email = "johnny@example.com")
+Author: Johnny Lab [aut, cre]
+Maintainer: Johnny Lab <johnny@example.com>
+Description: Tools to build row/column metrics for generalized PCA (genpca) on fMRI data
+    using NeuroVec/NeuroVol (neuroim2). Includes spatial graph Laplacian builders,
+    tissue/tSNR-informed voxel or parcel metrics (A), temporal AR(p) whitener and
+    frame-weighted row metrics (M), batch-friendly fitting across runs, and rank
+    selection & stability utilities. Works with NeuroVec (voxel) and ClusteredNeuroVec (parcel).
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Depends: R (>= 4.1.0)
+Imports: Matrix, matrixStats, stats, methods, neuroim2, genpca,
+        multivarious
+Suggests: neighborweights, RSpectra, RANN, subpca, testthat (>= 3.0.0),
+        knitr, rmarkdown
+Remotes: bbuchsbaum/genpca, bbuchsbaum/neuroim2,
+        bbuchsbaum/multivarious, bbuchsbaum/neighborweights,
+        bbuchsbaum/subpca
+Config/testthat/edition: 3
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2.9000
+VignetteBuilder: knitr
+Built: R 4.3.2; ; 2025-08-29 18:51:22 UTC; unix

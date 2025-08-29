@@ -1,0 +1,43 @@
+aggregate_tissue_to_parcels
+                        Aggregate GM/WM/CSF tissue probabilities to
+                        parcels
+blocked_cv_recon_error
+                        Blocked cross-validated reconstruction error
+                        under genpca geometry
+build_temporal_metric   Build temporal covariance metric for
+                        generalized PCA
+build_temporal_metric_parcel
+                        Build temporal covariance metric for
+                        parcellated fMRI data
+choose_rank_gd          Gavish–Donoho-style rank heuristic on whitened
+                        singular values
+choose_rank_pa          Parallel Analysis via time-wise permutation
+compute_tsnr            Temporal SNR (tSNR) per voxel across runs
+compute_tsnr_parcel     Parcel-level tSNR across runs
+                        (ClusteredNeuroVec)
+estimate_ar_whitener    Estimate a design-free AR(p) whitener from a
+                        run
+estimate_ar_whitener_parcel
+                        Estimate AR(p) whitener from parcel-level data
+fit_subject_genpca      Fit generalized PCA across multiple runs (voxel
+                        level)
+fit_subject_genpca_parcel
+                        Fit generalized PCA at the parcel level
+                        (ClusteredNeuroVec)
+fit_subject_metapca     Combine per-run genpca fits via meta-PCA (MFA)
+make_A_from_parcels     Build parcel-level column metric A from
+                        aggregated tissues and Laplacian
+make_A_from_vols        Build voxel (column) metric A from tissue maps,
+                        Laplacian, and tSNR
+make_frame_weights      Frame-wise robust weights from FD and DVARS
+make_laplacian          Build a spatial graph Laplacian from a NeuroVol
+                        mask
+make_parcel_laplacian   Build a parcel-level Laplacian
+make_temporal_penalty   Second-difference temporal smoothing penalty
+parcel_centroids_from_labels
+                        Parcel centroids from a label volume
+procrustes_distance     Procrustes distance between two subspaces
+subspace_principal_angles
+                        Principal angles between two subspaces
+whitened_matrix         Form a whitened matrix for genpca geometry
+whitened_svd            Truncated SVD of the whitened matrix

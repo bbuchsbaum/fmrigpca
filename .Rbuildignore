@@ -1,0 +1,9 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^README\.md$
+^README\.Rmd$
+^\.github$
+^vignettes/.*\.html$
+^vignettes/.*\.R$
+^.claude
+^CLAUDE\.md$
