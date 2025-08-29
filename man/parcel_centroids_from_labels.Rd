@@ -23,7 +23,7 @@ For each parcel label, voxel coordinates are averaged to obtain a centroid.
 Optionally restrict to a provided vector of \code{labels}.
 }
 \examples{
-\dontrun{
+\donttest{
 pc <- parcel_centroids_from_labels(parc_vol)
 }
 

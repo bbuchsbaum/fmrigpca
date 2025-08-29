@@ -24,7 +24,7 @@ or degenerate weights. This is the parcel-level analogue of \code{compute_tsnr()
 for voxel data.
 }
 \examples{
-\dontrun{
+\donttest{
 # Compute parcel tSNR across multiple runs
 tsnr_p <- compute_tsnr_parcel(cnv_list)
 }

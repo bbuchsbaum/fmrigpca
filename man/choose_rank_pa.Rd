@@ -22,7 +22,7 @@ indices independently within each column and selecting \code{k} where observed
 singular values exceed the \code{(1 - alpha)} quantile of the null.
 }
 \examples{
-\dontrun{
+\donttest{
 pa <- choose_rank_pa(W, B = 200, alpha = 0.05)
 }
 

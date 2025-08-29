@@ -16,7 +16,7 @@ Numeric vector of angles in radians.
 Computes principal angles between the column spaces spanned by \code{U} and \code{V}.
 }
 \examples{
-\dontrun{
+\donttest{
 theta <- subspace_principal_angles(U, V)
 }
 

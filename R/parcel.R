@@ -16,7 +16,7 @@
 #' @family parcel utilities
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' pc <- parcel_centroids_from_labels(parc_vol)
 #' }
 #'
@@ -68,8 +68,9 @@ parcel_centroids_from_labels <- function(parc_vol, labels = NULL) {
 #' @family parcel utilities
 #'
 #' @examples
-#' \dontrun{
-#' agg <- aggregate_tissue_to_parcels(gm, wm, csf, parc)
+#' \donttest{
+#' # Example requires tissue maps and parcellation
+#' # See vignette for complete example
 #' }
 #'
 #' @export
@@ -122,7 +123,7 @@ aggregate_tissue_to_parcels <- function(gm_vol, wm_vol, csf_vol, parc_vol, label
 #' @seealso [make_laplacian()] for voxel-level Laplacian construction
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' Lp <- make_parcel_laplacian(parc_vol = parc, k = 6, sigma = 2)
 #' }
 #'
@@ -180,7 +181,7 @@ make_parcel_laplacian <- function(adjacency = NULL, parcel_coords = NULL, parc_v
 #' @seealso [compute_tsnr()] for voxel-level tSNR computation
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # Compute parcel tSNR across multiple runs
 #' tsnr_p <- compute_tsnr_parcel(cnv_list)
 #' }
@@ -234,7 +235,7 @@ compute_tsnr_parcel <- function(cnv_list) {
 #' @seealso [estimate_ar_whitener()] for voxel-level AR whitening
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # Estimate AR(1) whitener using WM parcels
 #' arw <- estimate_ar_whitener_parcel(cnv_run, wm_parcels = c(1,2,3), p = 1)
 #' }
@@ -289,7 +290,7 @@ estimate_ar_whitener_parcel <- function(cnv_run, wm_parcels = NULL, p = 1L) {
 #' @seealso [build_temporal_metric()] for voxel-level temporal metric construction
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # Build temporal metric with AR(1) whitening and motion regressors
 #' M <- build_temporal_metric_parcel(cnv_run, wm_parcels = c(1,2,3),
 #'                                   FD = fd_vals, DVARS = dvars_vals)
@@ -340,7 +341,7 @@ build_temporal_metric_parcel <- function(cnv_run, wm_parcels = NULL, p = 1L,
 #' @seealso [build_spatial_metric()] for voxel-level column metric construction
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # Build parcel column metric with tissue weights and spatial smoothing
 #' A <- build_spatial_metric_parcel(gm_p, wm_p, csf_p, Lp, tsnr_p = tsnr_vals,
 #'                                  lambda_s = 0.5)
@@ -407,7 +408,7 @@ build_spatial_metric_parcel <- function(gm_p, wm_p, csf_p, Lp,
 #' @seealso [fit_subject_genpca()] for voxel-level analysis
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # Fit genpca on parcellated data with tissue weights
 #' fit <- fit_subject_genpca_parcel(cnv_list, parc_vol = parcellation,
 #'                                  gm_vol = gm, wm_vol = wm, csf_vol = csf,

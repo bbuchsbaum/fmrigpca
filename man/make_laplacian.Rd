@@ -41,7 +41,7 @@ Edge cases are handled: a single-voxel mask yields a 1x1 identity; empty
 masks are rejected. If \code{k} is too large, it is clipped to \code{n-1} neighbors.
 }
 \examples{
-\dontrun{
+\donttest{
 dims <- c(6,6,4)
 arr  <- array(FALSE, dims); arr[3:4,3:4,2:3] <- TRUE
 mv   <- neuroim2::NeuroVol(arr, neuroim2::NeuroSpace(dims, c(2,2,2)))

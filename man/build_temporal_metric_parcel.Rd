@@ -49,7 +49,7 @@ This parcel-level implementation uses parcel-averaged time series for AR
 estimation, providing computational efficiency for high-dimensional data.
 }
 \examples{
-\dontrun{
+\donttest{
 # Build temporal metric with AR(1) whitening and motion regressors
 M <- build_temporal_metric_parcel(cnv_run, wm_parcels = c(1,2,3),
                                   FD = fd_vals, DVARS = dvars_vals)

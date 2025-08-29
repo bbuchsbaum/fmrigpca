@@ -49,7 +49,7 @@ consensus space up to \code{ncomp = k}.
 }
 }
 \examples{
-\dontrun{
+\donttest{
 # Per-run fits (each list contains a single run)
 fits <- lapply(seq_along(nv_list), function(r) {
   fit_subject_genpca(

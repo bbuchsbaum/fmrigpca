@@ -21,8 +21,9 @@ Computes mean tissue probabilities within each parcel label to obtain
 parcel-level summaries suitable for parcel metrics.
 }
 \examples{
-\dontrun{
-agg <- aggregate_tissue_to_parcels(gm, wm, csf, parc)
+\donttest{
+# Example requires tissue maps and parcellation
+# See vignette for complete example
 }
 
 }

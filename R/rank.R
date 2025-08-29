@@ -14,7 +14,7 @@
 #' @seealso [whitened_svd()] for computing SVD of the whitened matrix
 #' 
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' W <- whitened_matrix(X, A, M)
 #' }
 #'
@@ -41,7 +41,7 @@ whitened_matrix <- function(X, A, M) {
 #' @seealso [whitened_matrix()] for the underlying whitening operation
 #' 
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' ws <- whitened_svd(X, A, M, k = 10)
 #' }
 #'
@@ -79,7 +79,7 @@ whitened_svd <- function(X, A, M, k = NULL) {
 #' @seealso [procrustes_distance()] for an alternative subspace distance metric
 #' 
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' theta <- subspace_principal_angles(U, V)
 #' }
 #'
@@ -106,7 +106,7 @@ subspace_principal_angles <- function(U, V) {
 #' @seealso [subspace_principal_angles()] for computing angles between subspaces
 #' 
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' d <- procrustes_distance(U, V)
 #' }
 #'
@@ -133,7 +133,7 @@ procrustes_distance <- function(U, V) {
 #'   [blocked_cv_recon_error()] for cross-validation approach
 #' 
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' gd <- choose_rank_gd(W)
 #' }
 #'
@@ -166,7 +166,7 @@ choose_rank_gd <- function(W) {
 #'   [blocked_cv_recon_error()] for cross-validation approach
 #' 
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' pa <- choose_rank_pa(W, B = 200, alpha = 0.05)
 #' }
 #'
@@ -207,7 +207,7 @@ choose_rank_pa <- function(W, B = 100L, alpha = 0.05) {
 #'   [choose_rank_pa()] for parallel analysis approach
 #' 
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' cv <- blocked_cv_recon_error(X, A, M, k = 5)
 #' }
 #'

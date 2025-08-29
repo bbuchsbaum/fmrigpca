@@ -22,7 +22,18 @@ points across runs. tSNR is \code{max(1e-6, mean) / max(1e-6, sd)}, then lower-
 bounded at \code{1e-6} to avoid degenerate weights.
 }
 \examples{
-\dontrun{
+\donttest{
+# Create simple test data
+dims <- c(10, 10, 5)
+mask <- array(TRUE, dims)
+space <- neuroim2::NeuroSpace(dims, c(1, 1, 1))
+
+# Create two runs with random data
+data1 <- array(rnorm(prod(dims) * 20), c(prod(dims), 20))
+data2 <- array(rnorm(prod(dims) * 20), c(prod(dims), 20))
+nv1 <- neuroim2::NeuroVec(data1, space, mask = mask)
+nv2 <- neuroim2::NeuroVec(data2, space, mask = mask)
+
 tsnr <- compute_tsnr(list(nv1, nv2))
 }
 

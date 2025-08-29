@@ -32,7 +32,7 @@ needed). The whitener \code{Q = chol(Sigma)^{-1}} is returned for use in the
 row metric. If \code{p = 0}, an identity whitener is returned.
 }
 \examples{
-\dontrun{
+\donttest{
 nv_run <- neuroim2::simulate_fmri(mask, n_time = 50, seed = 1)
 arw   <- estimate_ar_whitener(nv_run, p = 1L)
 }

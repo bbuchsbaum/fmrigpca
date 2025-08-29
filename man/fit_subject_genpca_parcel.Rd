@@ -81,7 +81,7 @@ Parcellation reduces dimensionality and computation while preserving
 spatial structure through the parcel graph.
 }
 \examples{
-\dontrun{
+\donttest{
 # Fit genpca on parcellated data with tissue weights
 fit <- fit_subject_genpca_parcel(cnv_list, parc_vol = parcellation,
                                  gm_vol = gm, wm_vol = wm, csf_vol = csf,

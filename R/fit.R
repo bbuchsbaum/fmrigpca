@@ -42,7 +42,7 @@
 #'   [fit_subject_metapca()] for combining multiple fits
 #' 
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' fit <- fit_subject_genpca(nv_list, mask, gm, wm, csf, k = 5)
 #' }
 #'
@@ -140,7 +140,7 @@ fit_subject_genpca <- function(nv_list, mask_vol, gm_vol, wm_vol, csf_vol,
 #'   generating individual fits to combine
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # Per-run fits (each list contains a single run)
 #' fits <- lapply(seq_along(nv_list), function(r) {
 #'   fit_subject_genpca(

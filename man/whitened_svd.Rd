@@ -19,7 +19,7 @@ Computes singular values (optionally truncated) of the whitened matrix. Uses
 \code{RSpectra} when available for efficiency in the truncated case.
 }
 \examples{
-\dontrun{
+\donttest{
 ws <- whitened_svd(X, A, M, k = 10)
 }
 

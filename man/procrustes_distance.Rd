@@ -17,7 +17,7 @@ Computes the orthogonal Procrustes distance between subspaces spanned by \code{U
 and \code{V} using singular values of \verb{U'V}.
 }
 \examples{
-\dontrun{
+\donttest{
 d <- procrustes_distance(U, V)
 }
 

@@ -33,7 +33,7 @@ matrix, parcel centroids (k–NN), or a label volume. Normalization and spectral
 scaling mirror the voxel-level Laplacian.
 }
 \examples{
-\dontrun{
+\donttest{
 Lp <- make_parcel_laplacian(parc_vol = parc, k = 6, sigma = 2)
 }
 

@@ -69,7 +69,7 @@ and \code{genpca::genpca} is called with \code{ncomp = k}. The result gains a \c
 component via \code{multivarious::scores}.
 }
 \examples{
-\dontrun{
+\donttest{
 fit <- fit_subject_genpca(nv_list, mask, gm, wm, csf, k = 5)
 }
 

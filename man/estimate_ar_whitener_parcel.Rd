@@ -36,7 +36,7 @@ definiteness. Returns the whitener \code{Q = chol(Sigma)^{-1}} for use in the
 row metric construction.
 }
 \examples{
-\dontrun{
+\donttest{
 # Estimate AR(1) whitener using WM parcels
 arw <- estimate_ar_whitener_parcel(cnv_run, wm_parcels = c(1,2,3), p = 1)
 }

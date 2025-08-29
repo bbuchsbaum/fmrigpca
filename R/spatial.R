@@ -17,7 +17,18 @@
 #' @seealso [compute_tsnr_parcel()] for parcel-level tSNR computation
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
+#' # Create simple test data
+#' dims <- c(10, 10, 5)
+#' mask <- array(TRUE, dims)
+#' space <- neuroim2::NeuroSpace(dims, c(1, 1, 1))
+#' 
+#' # Create two runs with random data
+#' data1 <- array(rnorm(prod(dims) * 20), c(prod(dims), 20))
+#' data2 <- array(rnorm(prod(dims) * 20), c(prod(dims), 20))
+#' nv1 <- neuroim2::NeuroVec(data1, space, mask = mask)
+#' nv2 <- neuroim2::NeuroVec(data2, space, mask = mask)
+#' 
 #' tsnr <- compute_tsnr(list(nv1, nv2))
 #' }
 #'
@@ -69,8 +80,26 @@ compute_tsnr <- function(nv_list) {
 #' @seealso [build_spatial_metric_parcel()] for parcel-level column metric construction
 #'
 #' @examples
-#' \dontrun{
-#' A <- build_spatial_metric(gm, wm, csf, L, tsnr = ts, mask_idx = idx)
+#' \donttest{
+#' # Create small example volumes
+#' dims <- c(5, 5, 3)
+#' space <- neuroim2::NeuroSpace(dims, c(1, 1, 1))
+#' 
+#' # Create tissue probability maps
+#' gm_data <- array(runif(prod(dims), 0.5, 1), dims)
+#' wm_data <- array(runif(prod(dims), 0, 0.3), dims)
+#' csf_data <- array(runif(prod(dims), 0, 0.2), dims)
+#' 
+#' gm <- neuroim2::NeuroVol(gm_data, space)
+#' wm <- neuroim2::NeuroVol(wm_data, space)
+#' csf <- neuroim2::NeuroVol(csf_data, space)
+#' 
+#' # Create mask and Laplacian
+#' mask <- neuroim2::NeuroVol(gm_data > 0.3, space)
+#' L <- make_laplacian(mask, k = 6)
+#' mask_idx <- which(neuroim2::values(mask) > 0)
+#' 
+#' A <- build_spatial_metric(gm, wm, csf, L, mask_idx = mask_idx)
 #' }
 #'
 #' @export

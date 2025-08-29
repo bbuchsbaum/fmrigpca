@@ -25,7 +25,7 @@
 #' @seealso [estimate_ar_whitener_parcel()] for parcel-level AR whitening
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' nv_run <- neuroim2::simulate_fmri(mask, n_time = 50, seed = 1)
 #' arw   <- estimate_ar_whitener(nv_run, p = 1L)
 #' }
@@ -99,7 +99,7 @@ estimate_ar_whitener <- function(nv_run, wm_mask = NULL, p = 1L) {
 #' @family temporal metrics
 #' 
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' H <- make_temporal_penalty(30, lambda_t = 0.5)
 #' }
 #'
@@ -189,9 +189,9 @@ make_temporal_penalty <- function(Tlen, lambda_t = 0.3) {
 #' Cerebral Cortex, 20(12), 2852-2862.
 #' 
 #' @examples
-#' \dontrun{
+#' # Create frame weights from motion parameters
 #' W <- make_frame_weights(FD = runif(30, 0, 0.5), DVARS = runif(30, 0.5, 1.5))
-#' }
+#' diag(W)[1:5]  # First 5 frame weights
 #'
 #' @export
 make_frame_weights <- function(FD = NULL, DVARS = NULL,
@@ -303,7 +303,7 @@ make_frame_weights <- function(FD = NULL, DVARS = NULL,
 #' - [make_frame_weights()] for motion-based weighting
 #' 
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # Basic usage with AR(1) whitening
 #' M <- build_temporal_metric(nv_run, p = 1L)
 #' 

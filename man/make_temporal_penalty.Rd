@@ -20,7 +20,7 @@ second-difference operator. Promotes smoothness in time while keeping the
 metric positive definite.
 }
 \examples{
-\dontrun{
+\donttest{
 H <- make_temporal_penalty(30, lambda_t = 0.5)
 }
 

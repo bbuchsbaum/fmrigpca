@@ -54,7 +54,7 @@ quality weights derived from tissue composition and temporal SNR. The result
 is a positive definite metric suitable for generalized PCA.
 }
 \examples{
-\dontrun{
+\donttest{
 # Build parcel column metric with tissue weights and spatial smoothing
 A <- build_spatial_metric_parcel(gm_p, wm_p, csf_p, Lp, tsnr_p = tsnr_vals,
                                  lambda_s = 0.5)

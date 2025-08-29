@@ -17,7 +17,7 @@ Estimates noise level and selects \code{k} by thresholding the singular values \
 of the whitened matrix at \code{tau = sigma_hat (sqrt(m) + sqrt(n))}.
 }
 \examples{
-\dontrun{
+\donttest{
 gd <- choose_rank_gd(W)
 }
 

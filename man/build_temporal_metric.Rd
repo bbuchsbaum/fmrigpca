@@ -116,7 +116,7 @@ artifact influence. See \code{make_frame_weights()} for details.
 }
 }
 \examples{
-\dontrun{
+\donttest{
 # Basic usage with AR(1) whitening
 M <- build_temporal_metric(nv_run, p = 1L)
 

@@ -21,7 +21,7 @@ Applies square-root scalings of the row and column metrics to obtain the
 whitened matrix \verb{W = R_M^T X R_A}, where \verb{A = R_A^T R_A} and \verb{M = R_M^T R_M}.
 }
 \examples{
-\dontrun{
+\donttest{
 W <- whitened_matrix(X, A, M)
 }
 

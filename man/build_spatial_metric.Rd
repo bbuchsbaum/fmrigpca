@@ -49,8 +49,26 @@ voxel indices and must align with \code{nrow(L)}. If \code{tsnr} is \code{NULL},
 to 1. Tissue maps must share space with the mask.
 }
 \examples{
-\dontrun{
-A <- build_spatial_metric(gm, wm, csf, L, tsnr = ts, mask_idx = idx)
+\donttest{
+# Create small example volumes
+dims <- c(5, 5, 3)
+space <- neuroim2::NeuroSpace(dims, c(1, 1, 1))
+
+# Create tissue probability maps
+gm_data <- array(runif(prod(dims), 0.5, 1), dims)
+wm_data <- array(runif(prod(dims), 0, 0.3), dims)
+csf_data <- array(runif(prod(dims), 0, 0.2), dims)
+
+gm <- neuroim2::NeuroVol(gm_data, space)
+wm <- neuroim2::NeuroVol(wm_data, space)
+csf <- neuroim2::NeuroVol(csf_data, space)
+
+# Create mask and Laplacian
+mask <- neuroim2::NeuroVol(gm_data > 0.3, space)
+L <- make_laplacian(mask, k = 6)
+mask_idx <- which(neuroim2::values(mask) > 0)
+
+A <- build_spatial_metric(gm, wm, csf, L, mask_idx = mask_idx)
 }
 
 }

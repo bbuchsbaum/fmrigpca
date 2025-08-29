@@ -33,7 +33,7 @@
 #' @seealso [make_parcel_laplacian()] for parcel-level Laplacian construction
 #' 
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' dims <- c(6,6,4)
 #' arr  <- array(FALSE, dims); arr[3:4,3:4,2:3] <- TRUE
 #' mv   <- neuroim2::NeuroVol(arr, neuroim2::NeuroSpace(dims, c(2,2,2)))

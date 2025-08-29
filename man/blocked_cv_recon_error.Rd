@@ -24,7 +24,7 @@ projecting hold-out data onto the \code{k}-dimensional column space learned on t
 training block, all under the whitened geometry.
 }
 \examples{
-\dontrun{
+\donttest{
 cv <- blocked_cv_recon_error(X, A, M, k = 5)
 }
 
