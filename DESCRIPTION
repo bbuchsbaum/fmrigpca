@@ -2,9 +2,9 @@ Package: fmrigpca
 Type: Package
 Title: Design-free fMRI Dimensionality Reduction with Generalized PCA
 Version: 0.1.3
-Authors@R: person(given = "Johnny", family = "Lab", role = c("aut", "cre"), email = "johnny@example.com")
-Author: Johnny Lab [aut, cre]
-Maintainer: Johnny Lab <johnny@example.com>
+Authors@R: person(given = "Bradley", family = "Buchsbaum", role = c("aut", "cre"), email = "brad.buchsbaum@gmail.com")
+Author: Bradley Buchsbaum [aut, cre]
+Maintainer: Bradley Buchsbaum <brad.buchsbaum@gmail.com>
 Description: Tools to build row/column metrics for generalized PCA (genpca) on fMRI data
     using NeuroVec/NeuroVol (neuroim2). Includes spatial graph Laplacian builders,
     tissue/tSNR-informed voxel or parcel metrics (A), temporal AR(p) whitener and
