@@ -21,21 +21,20 @@ Imports:
     methods,
     neuroim2,
     genpca,
-    multivarious,
-    subpca
+    multivarious
 Suggests:
     neighborweights,
     RSpectra,
     RANN,
     testthat (>= 3.0.0),
     knitr,
-    rmarkdown
+    rmarkdown,
+    subpca
 Remotes:
     bbuchsbaum/genpca,
     bbuchsbaum/neuroim2,
     bbuchsbaum/multivarious,
-    bbuchsbaum/neighborweights,
-    bbuchsbaum/subpca
+    bbuchsbaum/neighborweights
 Config/testthat/edition: 3
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2.9000
