@@ -15,6 +15,10 @@
 #' 
 #' @examples
 #' \donttest{
+#' set.seed(1)
+#' X <- matrix(rnorm(200), nrow = 20, ncol = 10)
+#' A <- Matrix::Diagonal(ncol(X))
+#' M <- Matrix::Diagonal(nrow(X))
 #' W <- whitened_matrix(X, A, M)
 #' }
 #'
@@ -42,7 +46,11 @@ whitened_matrix <- function(X, A, M) {
 #' 
 #' @examples
 #' \donttest{
-#' ws <- whitened_svd(X, A, M, k = 10)
+#' set.seed(1)
+#' X <- matrix(rnorm(300), nrow = 30, ncol = 10)
+#' A <- Matrix::Diagonal(ncol(X))
+#' M <- Matrix::Diagonal(nrow(X))
+#' ws <- whitened_svd(X, A, M, k = 5)
 #' }
 #'
 #' @export
@@ -80,6 +88,9 @@ whitened_svd <- function(X, A, M, k = NULL) {
 #' 
 #' @examples
 #' \donttest{
+#' set.seed(1)
+#' U <- matrix(rnorm(50), nrow = 10)
+#' V <- matrix(rnorm(50), nrow = 10)
 #' theta <- subspace_principal_angles(U, V)
 #' }
 #'
@@ -107,6 +118,9 @@ subspace_principal_angles <- function(U, V) {
 #' 
 #' @examples
 #' \donttest{
+#' set.seed(1)
+#' U <- matrix(rnorm(50), nrow = 10)
+#' V <- matrix(rnorm(50), nrow = 10)
 #' d <- procrustes_distance(U, V)
 #' }
 #'
@@ -134,6 +148,8 @@ procrustes_distance <- function(U, V) {
 #' 
 #' @examples
 #' \donttest{
+#' set.seed(1)
+#' W <- matrix(rnorm(200), nrow = 20, ncol = 10)
 #' gd <- choose_rank_gd(W)
 #' }
 #'
@@ -167,7 +183,9 @@ choose_rank_gd <- function(W) {
 #' 
 #' @examples
 #' \donttest{
-#' pa <- choose_rank_pa(W, B = 200, alpha = 0.05)
+#' set.seed(1)
+#' W <- matrix(rnorm(200), nrow = 20, ncol = 10)
+#' pa <- choose_rank_pa(W, B = 20, alpha = 0.05)
 #' }
 #'
 #' @export
@@ -208,7 +226,11 @@ choose_rank_pa <- function(W, B = 100L, alpha = 0.05) {
 #' 
 #' @examples
 #' \donttest{
-#' cv <- blocked_cv_recon_error(X, A, M, k = 5)
+#' set.seed(1)
+#' X <- matrix(rnorm(500), nrow = 50, ncol = 10)
+#' A <- Matrix::Diagonal(ncol(X))
+#' M <- Matrix::Diagonal(nrow(X))
+#' cv <- blocked_cv_recon_error(X, A, M, k = 3)
 #' }
 #'
 #' @export

@@ -22,6 +22,10 @@ whitened matrix \verb{W = R_M^T X R_A}, where \verb{A = R_A^T R_A} and \verb{M =
 }
 \examples{
 \donttest{
+set.seed(1)
+X <- matrix(rnorm(200), nrow = 20, ncol = 10)
+A <- Matrix::Diagonal(ncol(X))
+M <- Matrix::Diagonal(nrow(X))
 W <- whitened_matrix(X, A, M)
 }
 

@@ -20,7 +20,11 @@ Computes singular values (optionally truncated) of the whitened matrix. Uses
 }
 \examples{
 \donttest{
-ws <- whitened_svd(X, A, M, k = 10)
+set.seed(1)
+X <- matrix(rnorm(300), nrow = 30, ncol = 10)
+A <- Matrix::Diagonal(ncol(X))
+M <- Matrix::Diagonal(nrow(X))
+ws <- whitened_svd(X, A, M, k = 5)
 }
 
 }

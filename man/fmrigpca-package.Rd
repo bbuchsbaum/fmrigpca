@@ -16,7 +16,7 @@ Useful links:
 
 }
 \author{
-\strong{Maintainer}: Johnny Lab \email{johnny@example.com}
+\strong{Maintainer}: Bradley Buchsbaum \email{brad.buchsbaum@gmail.com}
 
 }
 \keyword{internal}

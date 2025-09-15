@@ -191,7 +191,7 @@ make_temporal_penalty <- function(Tlen, lambda_t = 0.3) {
 #' @examples
 #' # Create frame weights from motion parameters
 #' W <- make_frame_weights(FD = runif(30, 0, 0.5), DVARS = runif(30, 0.5, 1.5))
-#' diag(W)[1:5]  # First 5 frame weights
+#' Matrix::diag(W)[1:5]  # First 5 frame weights
 #'
 #' @export
 make_frame_weights <- function(FD = NULL, DVARS = NULL,
@@ -305,6 +305,18 @@ make_frame_weights <- function(FD = NULL, DVARS = NULL,
 #' @examples
 #' \donttest{
 #' # Basic usage with AR(1) whitening
+#' time_points <- 12
+#' dims <- c(4, 4, 3, time_points)  # 4D: x, y, z, time
+#' space <- neuroim2::NeuroSpace(dims,
+#'                                spacing = c(1, 1, 1),
+#'                                origin = c(0, 0, 0))
+#' mask <- array(TRUE, dims[1:3])  # 3D mask
+#' data <- array(rnorm(prod(dims)), dims)
+#' nv_run <- neuroim2::NeuroVec(data, space, mask = mask)
+#' wm_vol <- neuroim2::NeuroVol(array(runif(prod(dims[1:3])), dims[1:3]),
+#'                              neuroim2::NeuroSpace(dims[1:3], c(1, 1, 1)))
+#' fd_values <- runif(time_points, 0, 0.4)
+#' dvars_values <- runif(time_points, 0, 1)
 #' M <- build_temporal_metric(nv_run, p = 1L)
 #' 
 #' # With motion correction

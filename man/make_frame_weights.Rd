@@ -73,7 +73,7 @@ in the time series.
 \examples{
 # Create frame weights from motion parameters
 W <- make_frame_weights(FD = runif(30, 0, 0.5), DVARS = runif(30, 0.5, 1.5))
-diag(W)[1:5]  # First 5 frame weights
+Matrix::diag(W)[1:5]  # First 5 frame weights
 
 }
 \references{

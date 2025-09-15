@@ -56,6 +56,15 @@ is a positive definite metric suitable for generalized PCA.
 \examples{
 \donttest{
 # Build parcel column metric with tissue weights and spatial smoothing
+gm_p <- c(0.8, 0.6, 0.2)
+wm_p <- c(0.15, 0.25, 0.6)
+csf_p <- c(0.05, 0.15, 0.2)
+tsnr_vals <- c(50, 40, 30)
+adj <- Matrix::Matrix(matrix(c(0, 1, 0,
+                               1, 0, 1,
+                               0, 1, 0), nrow = 3, byrow = TRUE))
+deg <- Matrix::Diagonal(x = c(1, 2, 1))
+Lp <- deg - adj
 A <- build_spatial_metric_parcel(gm_p, wm_p, csf_p, Lp, tsnr_p = tsnr_vals,
                                  lambda_s = 0.5)
 }

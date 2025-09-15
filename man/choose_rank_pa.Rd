@@ -23,7 +23,9 @@ singular values exceed the \code{(1 - alpha)} quantile of the null.
 }
 \examples{
 \donttest{
-pa <- choose_rank_pa(W, B = 200, alpha = 0.05)
+set.seed(1)
+W <- matrix(rnorm(200), nrow = 20, ncol = 10)
+pa <- choose_rank_pa(W, B = 20, alpha = 0.05)
 }
 
 }

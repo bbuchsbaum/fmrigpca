@@ -17,6 +17,9 @@ Computes principal angles between the column spaces spanned by \code{U} and \cod
 }
 \examples{
 \donttest{
+set.seed(1)
+U <- matrix(rnorm(50), nrow = 10)
+V <- matrix(rnorm(50), nrow = 10)
 theta <- subspace_principal_angles(U, V)
 }
 

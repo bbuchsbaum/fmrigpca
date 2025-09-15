@@ -27,12 +27,16 @@ fit_subject_genpca(
 
 \item{gm_vol, wm_vol, csf_vol}{\code{NeuroVol} tissue probability maps (same space as mask).}
 
-\item{FD_list, DVARS_list}{Optional lists of per-run motion metrics.
-Each list should contain numeric vectors with one element per list
-corresponding to each run in nv_list. FD is framewise displacement (mm)
-and DVARS is the temporal derivative of signal variance. These metrics
-are used to down-weight high-motion frames. See \code{\link{make_frame_weights}}
-for detailed definitions.}
+\item{FD_list}{Optional list of per-run framewise displacement (FD) values.
+Should contain numeric vectors, one per run in nv_list. FD measures head
+motion in mm between consecutive frames. Used to down-weight high-motion
+frames. See \code{\link{make_frame_weights}} for detailed definition.}
+
+\item{DVARS_list}{Optional list of per-run DVARS (temporal derivative of
+signal variance) values. Should contain numeric vectors, one per run in
+nv_list. DVARS measures frame-to-frame signal change. Used to down-weight
+frames with excessive signal variation. See \code{\link{make_frame_weights}}
+for detailed definition.}
 
 \item{k}{Number of components to fit (default 20). Start with modest values
 (5-10) for exploration, increase based on rank selection diagnostics.}

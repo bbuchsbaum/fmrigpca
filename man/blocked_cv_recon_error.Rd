@@ -25,7 +25,11 @@ training block, all under the whitened geometry.
 }
 \examples{
 \donttest{
-cv <- blocked_cv_recon_error(X, A, M, k = 5)
+set.seed(1)
+X <- matrix(rnorm(500), nrow = 50, ncol = 10)
+A <- Matrix::Diagonal(ncol(X))
+M <- Matrix::Diagonal(nrow(X))
+cv <- blocked_cv_recon_error(X, A, M, k = 3)
 }
 
 }

@@ -24,13 +24,15 @@ bounded at \code{1e-6} to avoid degenerate weights.
 \examples{
 \donttest{
 # Create simple test data
-dims <- c(10, 10, 5)
-mask <- array(TRUE, dims)
-space <- neuroim2::NeuroSpace(dims, c(1, 1, 1))
+dims <- c(10, 10, 5, 20)  # 4D: x, y, z, time
+space <- neuroim2::NeuroSpace(dims,
+                               spacing = c(1, 1, 1),
+                               origin = c(0, 0, 0))
+mask <- array(TRUE, dims[1:3])  # 3D mask
 
 # Create two runs with random data
-data1 <- array(rnorm(prod(dims) * 20), c(prod(dims), 20))
-data2 <- array(rnorm(prod(dims) * 20), c(prod(dims), 20))
+data1 <- array(rnorm(prod(dims)), dims)
+data2 <- array(rnorm(prod(dims)), dims)
 nv1 <- neuroim2::NeuroVec(data1, space, mask = mask)
 nv2 <- neuroim2::NeuroVec(data2, space, mask = mask)
 

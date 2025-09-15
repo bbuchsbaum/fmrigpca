@@ -18,6 +18,8 @@ of the whitened matrix at \code{tau = sigma_hat (sqrt(m) + sqrt(n))}.
 }
 \examples{
 \donttest{
+set.seed(1)
+W <- matrix(rnorm(200), nrow = 20, ncol = 10)
 gd <- choose_rank_gd(W)
 }
 

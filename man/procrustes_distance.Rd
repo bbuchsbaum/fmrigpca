@@ -18,6 +18,9 @@ and \code{V} using singular values of \verb{U'V}.
 }
 \examples{
 \donttest{
+set.seed(1)
+U <- matrix(rnorm(50), nrow = 10)
+V <- matrix(rnorm(50), nrow = 10)
 d <- procrustes_distance(U, V)
 }
 

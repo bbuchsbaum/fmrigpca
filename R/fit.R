@@ -16,12 +16,15 @@
 #' @param nv_list List of `NeuroVec` runs.
 #' @param mask_vol `NeuroVol` binary mask.
 #' @param gm_vol,wm_vol,csf_vol `NeuroVol` tissue probability maps (same space as mask).
-#' @param FD_list,DVARS_list Optional lists of per-run motion metrics.
-#'   Each list should contain numeric vectors with one element per list 
-#'   corresponding to each run in nv_list. FD is framewise displacement (mm)
-#'   and DVARS is the temporal derivative of signal variance. These metrics
-#'   are used to down-weight high-motion frames. See \code{\link{make_frame_weights}}
-#'   for detailed definitions.
+#' @param FD_list Optional list of per-run framewise displacement (FD) values.
+#'   Should contain numeric vectors, one per run in nv_list. FD measures head
+#'   motion in mm between consecutive frames. Used to down-weight high-motion
+#'   frames. See \code{\link{make_frame_weights}} for detailed definition.
+#' @param DVARS_list Optional list of per-run DVARS (temporal derivative of
+#'   signal variance) values. Should contain numeric vectors, one per run in
+#'   nv_list. DVARS measures frame-to-frame signal change. Used to down-weight
+#'   frames with excessive signal variation. See \code{\link{make_frame_weights}}
+#'   for detailed definition.
 #' @param k Number of components to fit (default 20). Start with modest values
 #'   (5-10) for exploration, increase based on rank selection diagnostics.
 #' @param p_ar AR order for row whitener (default 1). Use 0 to skip AR modeling,
