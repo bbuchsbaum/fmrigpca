@@ -23,7 +23,7 @@ Imports:
     genpca,
     multivarious
 Suggests:
-    neighborweights,
+    adjoin,
     RSpectra,
     RANN,
     testthat (>= 3.0.0),
@@ -34,7 +34,7 @@ Remotes:
     bbuchsbaum/genpca,
     bbuchsbaum/neuroim2,
     bbuchsbaum/multivarious,
-    bbuchsbaum/neighborweights
+    bbuchsbaum/adjoin
 Config/testthat/edition: 3
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2.9000
