@@ -201,15 +201,33 @@ make_frame_weights <- function(FD = NULL, DVARS = NULL,
     return(Matrix::Diagonal(1))
   }
   
-  if (is.null(FD))    FD    <- rep(0, length(DVARS))
-  if (is.null(DVARS)) DVARS <- rep(0, length(FD))
-  L <- max(length(FD), length(DVARS))
-  FD <- as.numeric(FD)[seq_len(L)]
-  DVARS <- as.numeric(DVARS)[seq_len(L)]
-  fdw  <- 1 / (1 + pmax(0, FD - fd_thresh))
-  z    <- base::scale(DVARS)
-  dvrw <- 1 / (1 + pmax(0, as.numeric(z) - dvars_z))
-  w    <- pmax(1e-3, fdw * dvrw)
+  has_fd    <- !is.null(FD)
+  has_dvars <- !is.null(DVARS)
+  L <- max(if (has_fd) length(FD) else 0L,
+           if (has_dvars) length(DVARS) else 0L)
+
+  if (has_fd) {
+    FD  <- as.numeric(FD)[seq_len(L)]
+    fdw <- 1 / (1 + pmax(0, FD - fd_thresh))
+  } else {
+    fdw <- rep(1, L)
+  }
+
+  if (has_dvars) {
+    DVARS <- as.numeric(DVARS)[seq_len(L)]
+    sdv   <- sqrt(stats::var(DVARS, na.rm = TRUE))
+    if (is.finite(sdv) && sdv > 0) {
+      z    <- (DVARS - mean(DVARS, na.rm = TRUE)) / sdv
+      dvrw <- 1 / (1 + pmax(0, z - dvars_z))
+    } else {
+      # Constant DVARS carries no outlier information; do not down-weight.
+      dvrw <- rep(1, L)
+    }
+  } else {
+    dvrw <- rep(1, L)
+  }
+
+  w <- pmax(1e-3, fdw * dvrw)
   Matrix::Diagonal(x = w)
 }
 

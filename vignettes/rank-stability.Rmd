@@ -452,5 +452,5 @@ cat("  Ratio (heavy/light):", round(spatial_var_heavy/spatial_var_light, 3), "\n
 ### Tips & Pitfalls
 - Always set seeds in examples to keep results reproducible.
 - Use modest dimensions in vignettes; scale up in real analyses.
-- The `neighborweights` package is required for efficient spatial graph construction.
+- The `adjoin` package (CRAN) enables efficient spatial graph construction; an internal fallback is used if it is unavailable.
 - Ensure tissue maps share the same `NeuroSpace` as the mask; mismatches will error.

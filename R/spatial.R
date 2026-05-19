@@ -37,13 +37,11 @@
 #' @export
 compute_tsnr <- function(nv_list) {
   stopifnot(length(nv_list) >= 1L)
-  X0 <- as.matrix(nv_list[[1L]])
-  V  <- nrow(X0)
-  s1 <- numeric(V)
-  s2 <- numeric(V)
+  s1 <- s2 <- NULL
   Ttot <- 0L
   for (nv in nv_list) {
     X <- as.matrix(nv)   # V x T
+    if (is.null(s1)) { s1 <- numeric(nrow(X)); s2 <- numeric(nrow(X)) }
     s1 <- s1 + Matrix::rowSums(X)
     s2 <- s2 + Matrix::rowSums(X^2)
     Ttot <- Ttot + ncol(X)
@@ -122,9 +120,9 @@ build_spatial_metric <- function(gm_vol, wm_vol, csf_vol, L,
 
   if (is.null(mask_idx)) {
     mask_idx <- which(gm_all + wm_all + csf_all > 0)
-    if (length(mask_idx) != nrow(L)) {
-      stop("mask_idx must align with the Laplacian L dimension.")
-    }
+  }
+  if (length(mask_idx) != nrow(L)) {
+    stop("mask_idx must align with the Laplacian L dimension.")
   }
 
   gm  <- gm_all[mask_idx]

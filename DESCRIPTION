@@ -18,7 +18,6 @@ Imports:
     Matrix,
     matrixStats,
     stats,
-    methods,
     neuroim2,
     genpca,
     multivarious
@@ -34,7 +33,7 @@ Remotes:
     bbuchsbaum/genpca,
     bbuchsbaum/neuroim2,
     bbuchsbaum/multivarious,
-    bbuchsbaum/adjoin
+    bbuchsbaum/subpca
 Config/testthat/edition: 3
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2.9000

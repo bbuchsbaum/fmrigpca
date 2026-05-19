@@ -57,21 +57,19 @@ whitened_matrix <- function(X, A, M) {
 whitened_svd <- function(X, A, M, k = NULL) {
   W <- whitened_matrix(X, A, M)
   if (is.null(k)) {
-    sv <- svd(W, nu = 0, nv = 0)
+    sv <- svd(as.matrix(W), nu = 0, nv = 0)
     return(list(d = sv$d, u = NULL, v = NULL))
-  } else {
-    if (requireNamespace("RSpectra", quietly = TRUE)) {
-      S <- Matrix::crossprod(W)
-      es <- RSpectra::eigs_sym(as.matrix(S), k = k, which = "LM")
-      d  <- sqrt(pmax(0, as.numeric(es$values)))
-      d  <- sort(d, decreasing = TRUE)
-      return(list(d = d, u = NULL, v = NULL))
-    } else {
-      sv <- svd(W, nu = 0, nv = 0)
-      d  <- if (k < length(sv$d)) sv$d[1:k] else sv$d
-      return(list(d = d, u = NULL, v = NULL))
-    }
   }
+  # Truncated SVD operating directly on W (avoids forming the dense V x V
+  # crossproduct, which is infeasible for voxel-scale data).
+  if (k < min(dim(W)) && requireNamespace("RSpectra", quietly = TRUE)) {
+    sv <- RSpectra::svds(W, k = k, nu = 0, nv = 0)
+    d  <- sort(as.numeric(sv$d), decreasing = TRUE)
+    return(list(d = d, u = NULL, v = NULL))
+  }
+  sv <- svd(as.matrix(W), nu = 0, nv = 0)
+  d  <- if (k < length(sv$d)) sv$d[seq_len(k)] else sv$d
+  list(d = d, u = NULL, v = NULL)
 }
 
 #' Principal angles between two subspaces
@@ -236,27 +234,34 @@ choose_rank_pa <- function(W, B = 100L, alpha = 0.05) {
 #' @export
 blocked_cv_recon_error <- function(X, A, M, k, nfold = 5L, block_frac = 0.2) {
   Tlen <- nrow(X)
-  bsz  <- max(1L, floor(Tlen * block_frac))
-  starts <- round(seq(1, Tlen - bsz + 1, length.out = nfold))
-  errs <- numeric(nfold)
+  # Disjoint, contiguous hold-out blocks: stride >= block size guarantees folds
+  # never overlap.
+  stride <- max(1L, floor(Tlen / nfold))
+  bsz    <- max(1L, min(floor(Tlen * block_frac), stride))
+  starts <- 1L + (seq_len(nfold) - 1L) * stride
+  errs   <- numeric(nfold)
 
-  RA <- chol(A); RM <- chol(M)
+  RA <- chol(A)
 
-  for (f in seq_along(starts)) {
-    s0 <- starts[f]; idx_hold <- seq.int(s0, length.out = bsz)
+  for (f in seq_len(nfold)) {
+    s0 <- starts[f]
+    idx_hold  <- seq.int(s0, length.out = min(bsz, Tlen - s0 + 1L))
     idx_train <- setdiff(seq_len(Tlen), idx_hold)
 
-    W_tr <- (Matrix::t(RM[idx_train, idx_train, drop = FALSE])) %*% X[idx_train, , drop = FALSE] %*% RA
-    sv   <- svd(W_tr, nu = k, nv = k)
-    Uk <- sv$u[, 1:k, drop = FALSE]; Vk <- sv$v[, 1:k, drop = FALSE]
+    # Whiten rows with the Cholesky of the relevant *submatrix* of M; a
+    # submatrix of chol(M) is not the Cholesky of the submatrix of M.
+    RM_tr <- chol(Matrix::forceSymmetric(M[idx_train, idx_train, drop = FALSE]))
+    RM_ho <- chol(Matrix::forceSymmetric(M[idx_hold,  idx_hold,  drop = FALSE]))
 
-    W_ho <- (Matrix::t(RM[idx_hold, idx_hold, drop = FALSE])) %*% X[idx_hold, , drop = FALSE] %*% RA
-    # Project hold-out onto the subspaces learned from training
-    # W_ho is m_hold x n, Vk is n x k
-    # Reconstruction: W_ho * Vk * Vk'
+    W_tr <- (Matrix::t(RM_tr)) %*% X[idx_train, , drop = FALSE] %*% RA
+    sv   <- svd(as.matrix(W_tr), nu = k, nv = k)
+    Vk   <- sv$v[, seq_len(k), drop = FALSE]
+
+    W_ho  <- (Matrix::t(RM_ho)) %*% X[idx_hold, , drop = FALSE] %*% RA
+    # Project hold-out onto the column subspace learned from training.
     W_rec <- W_ho %*% Vk %*% t(Vk)
 
-    errs[f] <- sqrt(sum((W_ho - W_rec)^2) / length(W_ho))
+    errs[f] <- sqrt(sum(as.matrix(W_ho - W_rec)^2) / length(W_ho))
   }
   data.frame(fold = seq_len(nfold), error = errs, mean_error = mean(errs))
 }
