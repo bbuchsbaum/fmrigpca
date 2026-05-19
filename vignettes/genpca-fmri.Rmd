@@ -579,7 +579,7 @@ M_p_blks <- lapply(cnv_list, function(cnv) {
 - Use parcellation to reduce dimensionality (200-1000 parcels)
 - Install RSpectra for faster eigensolvers (automatic)
 - Process runs in parallel when fitting separately
-- The neighborweights package provides efficient graph construction
+- The adjoin package provides efficient graph construction
 
 **Memory management:**
 - Voxel-wise: ~8 bytes/voxel/timepoint (double precision)

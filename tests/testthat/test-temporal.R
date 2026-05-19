@@ -102,15 +102,23 @@ test_that("make_frame_weights creates valid weight matrix", {
 test_that("make_frame_weights handles missing motion parameters", {
   n_time <- 30
   
-  # Only FD
+  # Only FD: weights must be finite (regression: constant absent DVARS
+  # previously produced all-NaN weights via scale() of a zero vector).
   fd <- runif(n_time, 0, 0.5)
   W_fd <- make_frame_weights(fd, NULL)
   expect_equal(dim(W_fd), c(n_time, n_time))
-  
+  expect_true(all(is.finite(Matrix::diag(W_fd))))
+  expect_true(all(Matrix::diag(W_fd) > 0 & Matrix::diag(W_fd) <= 1))
+
   # Only DVARS
   dvars <- runif(n_time, 0.5, 1.5)
   W_dvars <- make_frame_weights(NULL, dvars)
   expect_equal(dim(W_dvars), c(n_time, n_time))
+  expect_true(all(is.finite(Matrix::diag(W_dvars))))
+
+  # Constant DVARS must not produce NaN weights
+  W_const <- make_frame_weights(fd, rep(1.0, n_time))
+  expect_true(all(is.finite(Matrix::diag(W_const))))
   
   # Neither (should return identity)
   W_none <- make_frame_weights(NULL, NULL)

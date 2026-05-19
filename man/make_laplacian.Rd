@@ -31,7 +31,8 @@ stability.
 \details{
 Voxels inside the mask are converted to integer coordinates (i,j,k), then a
 k–NN graph is built with edge weights \code{exp(-d^2 / (2*sigma^2))} using the
-\code{neighborweights} package (functions \code{knn_weights} or \code{spatial_adjacency}).
+\code{adjoin} package (\code{graph_weights}/\code{adjacency}) when available,
+falling back to an internal implementation otherwise.
 The unnormalized Laplacian is \code{L = D - W}.
 The normalized variant is \verb{L = I - D^\{-1/2\} W D^\{-1/2\}}. In both cases, \code{L}
 is divided by its largest eigenvalue when positive and finite, keeping the

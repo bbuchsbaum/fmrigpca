@@ -189,11 +189,10 @@ make_parcel_laplacian <- function(adjacency = NULL, parcel_coords = NULL, parc_v
 #' @export
 compute_tsnr_parcel <- function(cnv_list) {
   stopifnot(length(cnv_list) >= 1L)
-  X0 <- as.matrix(cnv_list[[1L]])
-  P  <- nrow(X0)
-  s1 <- numeric(P); s2 <- numeric(P); Ttot <- 0L
+  s1 <- s2 <- NULL; Ttot <- 0L
   for (cnv in cnv_list) {
     X <- as.matrix(cnv)   # P x T
+    if (is.null(s1)) { s1 <- numeric(nrow(X)); s2 <- numeric(nrow(X)) }
     s1 <- s1 + rowSums(X)
     s2 <- s2 + rowSums(X^2)
     Ttot <- Ttot + ncol(X)
@@ -304,6 +303,12 @@ build_temporal_metric_parcel <- function(cnv_run, wm_parcels = NULL, p = 1L,
   Q    <- estimate_ar_whitener_parcel(cnv_run, wm_parcels = wm_parcels, p = p)$Q
   H    <- make_temporal_penalty(Tlen, lambda_t)
   W    <- make_frame_weights(FD, DVARS)
+
+  # If no motion parameters provided, expand W to match Tlen dimensions
+  if (nrow(W) == 1 && ncol(W) == 1) {
+    W <- Matrix::Diagonal(Tlen)
+  }
+
   M    <- Matrix::forceSymmetric((W^(1/2)) %*% (Matrix::t(Q) %*% H %*% Q) %*% (W^(1/2)))
   M + Matrix::Diagonal(Tlen) * ridge
 }
@@ -455,8 +460,10 @@ fit_subject_genpca_parcel <- function(cnv_list,
       stop("To aggregate tissues to parcels, provide parc_vol and gm_vol/wm_vol/csf_vol, or pass gm_p/wm_p/csf_p.")
     }
     agg <- aggregate_tissue_to_parcels(gm_vol, wm_vol, csf_vol, parc_vol)
-    gm_p <- agg$gm_p; wm_p <- agg$wm_p; csf_p <- agg$csf_p
+    gm_p <- agg$gm; wm_p <- agg$wm; csf_p <- agg$csf
     if (length(gm_p) != P) stop("Number of parcels in parc_vol/tissue maps does not match ClusteredNeuroVec (P).")
+  } else if (length(gm_p) != P || length(wm_p) != P || length(csf_p) != P) {
+    stop("Supplied gm_p/wm_p/csf_p must each have length P (number of parcels).")
   }
 
   A <- build_spatial_metric_parcel(gm_p, wm_p, csf_p, Lp, tsnr_p = tsnr_p, lambda_s = lambda_s)

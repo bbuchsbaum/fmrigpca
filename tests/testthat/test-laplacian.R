@@ -45,13 +45,13 @@ test_that("make_laplacian handles edge cases", {
   expect_error(make_laplacian(empty_mask, k = 3))
 })
 
-test_that("make_laplacian requires neighborweights package", {
-  skip_if_not_installed("neighborweights")
-  
+test_that("make_laplacian works with adjoin package", {
+  skip_if_not_installed("adjoin")
+
   mask <- create_spherical_mask(c(8, 8, 4))
   n_voxels <- sum(as.array(mask) != 0)
-  
-  # Should work with neighborweights
+
+  # Should work with adjoin
   L <- make_laplacian(mask, k = 6, sigma = 2.0, normalized = TRUE)
   expect_equal(nrow(L), n_voxels)
   expect_equal(ncol(L), n_voxels)

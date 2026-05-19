@@ -9,7 +9,8 @@
 #' @details
 #' Voxels inside the mask are converted to integer coordinates (i,j,k), then a
 #' k–NN graph is built with edge weights `exp(-d^2 / (2*sigma^2))` using the
-#' `neighborweights` package (functions `knn_weights` or `spatial_adjacency`).
+#' `adjoin` package (`graph_weights`/`adjacency`) when available, falling back
+#' to an internal implementation otherwise.
 #' The unnormalized Laplacian is `L = D - W`.
 #' The normalized variant is `L = I - D^{-1/2} W D^{-1/2}`. In both cases, `L`
 #' is divided by its largest eigenvalue when positive and finite, keeping the
@@ -57,10 +58,10 @@ make_laplacian <- function(mask_vol, k = 6, sigma = 2.5,
   kk <- (lin %/% (Vx * Vy)) + 1L
   coords <- cbind(ii, jj, kk)
 
-  # Use neighborweights for efficient k-NN graph construction if available
-  W <- if (requireNamespace("neighborweights", quietly = TRUE)) {
+  # Use adjoin for efficient k-NN graph construction if available
+  W <- if (requireNamespace("adjoin", quietly = TRUE)) {
     tryCatch({
-      g <- neighborweights::graph_weights(
+      g <- adjoin::graph_weights(
         X = coords,
         k = k,
         neighbor_mode = "knn",
@@ -69,9 +70,9 @@ make_laplacian <- function(mask_vol, k = 6, sigma = 2.5,
         sigma = sigma
       )
       # Extract adjacency matrix from neighbor_graph object
-      neighborweights::adjacency(g)
+      adjoin::adjacency(g)
     }, error = function(e) {
-      # Fallback to internal implementation if neighborweights fails
+      # Fallback to internal implementation if adjoin fails
       .knn_gaussian(coords, k = k, sigma = sigma, symmetric = TRUE)
     })
   } else {
@@ -134,9 +135,13 @@ make_laplacian <- function(mask_vol, k = 6, sigma = 2.5,
   } else {
     D <- as.matrix(dist(coords))
     diag(D) <- Inf
-    idx <- t(apply(D, 1L, function(row) order(row)[1:k]))
+    idx <- matrix(0L, nrow = n, ncol = k)
     dst <- matrix(NA_real_, nrow = n, ncol = k)
-    for (i in seq_len(n)) dst[i, ] <- D[i, idx[i, ]]
+    for (i in seq_len(n)) {
+      o <- order(D[i, ])[seq_len(k)]
+      idx[i, ] <- o
+      dst[i, ] <- D[i, o]
+    }
   }
   i <- rep.int(seq_len(n), times = k)
   j <- as.vector(idx)
